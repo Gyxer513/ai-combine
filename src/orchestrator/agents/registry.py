@@ -1,7 +1,8 @@
 """Реестр агентов: единая точка, откуда API берёт агента по имени.
 
-Этап 2 — реализован только Колобок. Кощей и Левша добавляются на Этапе 4,
-тогда же сюда дописываются их `AgentCard`.
+Все трое (Колобок/Кощей/Левша) зарегистрированы и переключаются как отдельные
+«модели» в OpenWebUI. Специфичные инструменты (RAG для Кощея, Gitea/sandbox для
+Левши) дозаполняются на Этапах 3/6 — каркас и роутинг уже на месте.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from dataclasses import dataclass
 
 from pydantic_ai import Agent
 
-from . import kolobok
+from . import kolobok, koschei, levsha
 from .base import AgentDeps, DataSensitivity
 
 
@@ -34,6 +35,22 @@ REGISTRY: dict[str, AgentCard] = {
         sensitivity=kolobok.SENSITIVITY,
         models=kolobok.MODELS,
         agent=kolobok.agent,
+    ),
+    koschei.NAME: AgentCard(
+        name=koschei.NAME,
+        title=koschei.TITLE,
+        description="SecOps: обучение ИБ, threat modeling, hardening своей инфры.",
+        sensitivity=koschei.SENSITIVITY,
+        models=koschei.MODELS,
+        agent=koschei.agent,
+    ),
+    levsha.NAME: AgentCard(
+        name=levsha.NAME,
+        title=levsha.TITLE,
+        description="Coder: чтение, написание и ревью кода в репозиториях.",
+        sensitivity=levsha.SENSITIVITY,
+        models=levsha.MODELS,
+        agent=levsha.agent,
     ),
 }
 

@@ -27,33 +27,34 @@ model_list:
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
 
-  # === Alibaba MaaS workspace (сторонние модели: GLM, DeepSeek) ===
-  # ВАЖНО: у этих моделей ДРУГОЙ base URL с workspace-id.
-  # ${ALIBABA_WORKSPACE_ID} берётся из окружения (Model Studio Console -> Workspace settings).
+  # === Alibaba: сторонние модели GLM / DeepSeek ===
+  # ВАЖНО: вопреки старому предположению про отдельный MaaS-workspace URL,
+  # для этого аккаунта GLM-5.1 и DeepSeek раздаются прямо через dashscope-intl
+  # (тот же ключ, что у Qwen). Проверено curl'ом: MaaS-workspace эндпоинт даёт 401.
   - model_name: glm-5.1
     litellm_params:
       model: openai/glm-5.1
-      api_base: https://${ALIBABA_WORKSPACE_ID}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+      api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
       extra_body:
         enable_thinking: true # дефолт для Кощея — глубокое reasoning
   - model_name: glm-5.1-fast
     litellm_params:
       model: openai/glm-5.1
-      api_base: https://${ALIBABA_WORKSPACE_ID}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+      api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
       extra_body:
         enable_thinking: false # без thinking — быстрее, дешевле (Левша-план)
   - model_name: deepseek-v3
     litellm_params:
       model: openai/deepseek-v3
-      api_base: https://${ALIBABA_WORKSPACE_ID}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+      api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
 
   # === OpenRouter free ===
   - model_name: nemotron-super-free
     litellm_params:
-      model: openrouter/nvidia/nemotron-3-super-120b:free
+      model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
       api_key: os.environ/OPENROUTER_API_KEY
   - model_name: owl-alpha-free
     litellm_params:
@@ -66,35 +67,13 @@ model_list:
       model: openrouter/anthropic/claude-sonnet-4.5
       api_key: os.environ/OPENROUTER_API_KEY
 
-# === Группы fallback на каждого агента ===
+# Пер-агентные fallback-цепочки реализованы в оркестраторе через Pydantic AI
+# FallbackModel (см. agents/*.py), а не здесь: LiteLLM-fallbacks ключуются по
+# реальным model_name, а не по именам агентов. Тут оставляем только retry/timeout.
 router_settings:
   routing_strategy: simple-shuffle
   num_retries: 3
   timeout: 60
-
-  fallbacks:
-    # 🦴 Кощей (SecOps)
-    - koschei:
-        - glm-5.1
-        - nemotron-super-free
-        - qwen-max
-    # 🔨 Левша (Coder)
-    - levsha-plan:
-        - glm-5.1-fast
-        - qwen-max
-    - levsha-code:
-        - nemotron-super-free
-        - qwen-coder
-        - owl-alpha-free
-    - levsha-review:
-        - owl-alpha-free
-        - nemotron-super-free
-        - qwen-coder
-    # 🍞 Колобок (General)
-    - kolobok:
-        - owl-alpha-free
-        - qwen-plus
-        - qwen-max
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
