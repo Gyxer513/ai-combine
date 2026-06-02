@@ -15,6 +15,7 @@ from pydantic_ai import Agent
 
 from ..tools.common import register_common_tools
 from ..tools.rag import register_rag_tool
+from ..tools.shell import register_shell_tool
 from .base import AgentDeps, DataSensitivity, build_model, load_prompt
 
 NAME = "koschei"
@@ -33,3 +34,9 @@ agent = Agent(
 )
 register_common_tools(agent)
 register_rag_tool(agent, namespace="security")
+register_shell_tool(
+    agent,
+    network=True,  # скан/разведка своей инфры требует сети
+    name="run_security_command",
+    what="Запуск security-команды (nmap, openssl, dig, curl, nc)",
+)

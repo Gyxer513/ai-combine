@@ -155,6 +155,26 @@ docker compose --profile telegram up -d           # telegram-бот
 - localhost-оверрайды (`LITELLM_BASE_URL=...localhost...`) нужны ТОЛЬКО при запуске
   на хосте; в Docker дефолты (имена сервисов) работают сами.
 
+## Этап 6: Sandbox (изолированное исполнение)
+
+Кощей и Левша запускают команды в одноразовом Docker-контейнере и сами разбирают
+вывод (а не просят копипастить):
+
+- 🦴 Кощей — `run_security_command` (nmap/openssl/dig/curl/nc) **с сетью**, для
+  скана/харденинга собственной инфры.
+- 🔨 Левша — `run_shell` (код/тесты/линтеры) **без сети**.
+
+Hardening sandbox'а: `cap_drop ALL`, `no-new-privileges`, read-only rootfs +
+tmpfs `/tmp`, лимиты mem/cpu/pids, non-root (uid 10001), таймаут, `--rm`.
+
+> Оркестратор порождает sandbox'ы через `docker.sock` (смонтирован в compose).
+> Это привилегия (RCE оркестратора = хост) — приемлемо для личного сервера, сами
+> sandbox'ы максимально зажаты и не получают ни сокет, ни capabilities.
+
+```bash
+docker build -t ai-combine/sandbox:latest -f docker/sandbox.Dockerfile .  # один раз
+```
+
 ## Локальная разработка
 
 ```bash

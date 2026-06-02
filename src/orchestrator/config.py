@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # Интервал автоиндексации в минутах: >0 — индексатор работает циклом, 0 — один проход.
     rag_index_interval_min: int = Field(default=0)
 
+    # --- Sandbox (Этап 6: изолированное исполнение команд) ---
+    sandbox_image: str = Field(default="ai-combine/sandbox:latest")
+    sandbox_mem: str = Field(default="512m")
+    sandbox_cpus: float = Field(default=1.0)
+    sandbox_pids: int = Field(default=256)
+    sandbox_timeout_sec: int = Field(default=60)
+    sandbox_output_limit: int = Field(default=8000)  # символов вывода в ответ модели
+
     # --- Веб-поиск (SearXNG, self-hosted) ---
     searxng_url: str = Field(default="http://searxng:8080")
 

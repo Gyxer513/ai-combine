@@ -71,6 +71,10 @@ services:
       - LITELLM_BASE_URL=http://litellm:4000/v1
       - QDRANT_URL=http://qdrant:6333
       - SEARXNG_URL=http://searxng:8080
+    volumes:
+      # Этап 6: оркестратор порождает sandbox-контейнеры через docker.sock.
+      # Привилегия (orchestrator RCE = хост) — sandbox'ы зато зажаты по максимуму.
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - litellm
       - qdrant

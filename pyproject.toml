@@ -13,6 +13,8 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "httpx>=0.27",
+    # --- Sandbox (Этап 6): порождение изолированных контейнеров ---
+    "docker>=7.1",
     # --- Логи ---
     "structlog>=24.4",
 ]

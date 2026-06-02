@@ -14,6 +14,7 @@ from pydantic_ai import Agent
 
 from ..tools.common import register_common_tools
 from ..tools.rag import register_rag_tool
+from ..tools.shell import register_shell_tool
 from .base import AgentDeps, DataSensitivity, build_model, load_prompt
 
 NAME = "levsha"
@@ -32,3 +33,9 @@ agent = Agent(
 )
 register_common_tools(agent)
 register_rag_tool(agent, namespace="coding")
+register_shell_tool(
+    agent,
+    network=False,  # прогон кода/тестов — без сети
+    name="run_shell",
+    what="Запуск кода/тестов/линтеров",
+)
