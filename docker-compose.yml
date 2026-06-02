@@ -50,6 +50,16 @@ services:
           memory: 4G
     restart: unless-stopped
 
+  # --- Веб-поиск для агентов (SearXNG, self-hosted) ---
+  searxng:
+    image: searxng/searxng:latest
+    ports: ["8888:8080"]
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888/
+    restart: unless-stopped
+
   # --- Веб-чат (Этап 1) ---
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
@@ -74,9 +84,11 @@ services:
       - LITELLM_BASE_URL=http://litellm:4000/v1
       - QDRANT_URL=http://qdrant:6333
       - TEI_URL=http://embeddings:80
+      - SEARXNG_URL=http://searxng:8080
     depends_on:
       - litellm
       - qdrant
+      - searxng
     profiles: ["app"]
     restart: unless-stopped
 

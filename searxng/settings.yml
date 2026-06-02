@@ -1,0 +1,18 @@
+# SearXNG — минимальный конфиг для self-hosted веб-поиска агентов.
+# Включён JSON-формат (по умолчанию выключен) — иначе ?format=json даёт 403.
+use_default_settings: true
+
+server:
+  # secret_key обязателен. Для локалки сгодится статичный; на проде — свой.
+  secret_key: "ai-combine-searxng-local-secret"
+  # limiter=false: разрешаем программный доступ из оркестратора без анти-бот лимита.
+  limiter: false
+  image_proxy: true
+
+search:
+  # Включаем json — без него web_search не сможет парсить ответ.
+  formats:
+    - html
+    - json
+  # Язык по умолчанию для запросов агентов.
+  default_lang: "ru"

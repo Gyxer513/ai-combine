@@ -1,12 +1,13 @@
 """Веб-поиск для агентов.
 
-Этап 2: лёгкий клиент к DuckDuckGo без сторонних зависимостей и без парсинга
-HTML — используется JSON Instant Answer API. Этого достаточно как стартовый
-инструмент Колобка; на проде источник легко заменить на self-hosted SearXNG,
-не трогая интерфейс `WebSearchClient.search`.
+Основной источник — self-hosted **SearXNG** (метапоисковик, JSON API): даёт
+нормальную выдачу с заголовками/сниппетами и не зависит от внешнего SaaS.
+Если SearXNG недоступен или ничего не вернул — fallback на DuckDuckGo Instant
+Answer API (JSON, без парсинга HTML). Если и он пуст — пустой список (инструмент
+не должен ронять запрос агента).
 
-HTTP-клиент инъектируется снаружи (общий `httpx.AsyncClient` оркестратора),
-что делает инструмент тестируемым без реальной сети.
+HTTP-клиент инъектируется снаружи (общий `httpx.AsyncClient` оркестратора) —
+инструмент тестируется без реальной сети.
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ from dataclasses import dataclass
 
 import httpx
 import structlog
+
+from ..config import settings
 
 log = structlog.get_logger()
 
@@ -37,18 +40,50 @@ class SearchResult:
 
 
 class WebSearchClient:
-    """Поиск в вебе через DuckDuckGo Instant Answer API."""
+    """Веб-поиск: SearXNG с fallback на DuckDuckGo."""
 
-    def __init__(self, http: httpx.AsyncClient, *, base_url: str = DUCKDUCKGO_IA_URL) -> None:
+    def __init__(
+        self,
+        http: httpx.AsyncClient,
+        *,
+        searxng_url: str | None = None,
+        ddg_url: str = DUCKDUCKGO_IA_URL,
+    ) -> None:
         self._http = http
-        self._base_url = base_url
+        self._searxng_url = (searxng_url or settings.searxng_url).rstrip("/")
+        self._ddg_url = ddg_url
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
-        """Вернуть до `max_results` находок по запросу.
+        """Вернуть до `max_results` находок: сначала SearXNG, потом DuckDuckGo."""
+        results = await self._search_searxng(query, max_results=max_results)
+        if results:
+            return results
+        return await self._search_ddg(query, max_results=max_results)
 
-        При сетевой ошибке возвращает пустой список (инструмент не должен
-        ронять весь запрос агента) и пишет предупреждение в лог.
-        """
+    async def _search_searxng(self, query: str, *, max_results: int) -> list[SearchResult]:
+        """Запрос к SearXNG JSON API."""
+        params = {"q": query, "format": "json", "language": "ru", "safesearch": "0"}
+        try:
+            resp = await self._http.get(f"{self._searxng_url}/search", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            log.warning("web_search.searxng_failed", query=query, error=str(exc))
+            return []
+
+        out: list[SearchResult] = []
+        for item in data.get("results", []):
+            if len(out) >= max_results:
+                break
+            url = (item.get("url") or "").strip()
+            title = (item.get("title") or "").strip()
+            snippet = (item.get("content") or "").strip()
+            if url:
+                out.append(SearchResult(title=title, url=url, snippet=snippet))
+        return out
+
+    async def _search_ddg(self, query: str, *, max_results: int) -> list[SearchResult]:
+        """Fallback: DuckDuckGo Instant Answer API."""
         params = {
             "q": query,
             "format": "json",
@@ -57,18 +92,17 @@ class WebSearchClient:
             "skip_disambig": "1",
         }
         try:
-            resp = await self._http.get(self._base_url, params=params)
+            resp = await self._http.get(self._ddg_url, params=params)
             resp.raise_for_status()
             data = resp.json()
         except (httpx.HTTPError, ValueError) as exc:
-            log.warning("web_search.failed", query=query, error=str(exc))
+            log.warning("web_search.ddg_failed", query=query, error=str(exc))
             return []
-
         return _parse_instant_answer(data, max_results=max_results)
 
 
 def _parse_instant_answer(data: dict, *, max_results: int) -> list[SearchResult]:
-    """Разобрать ответ Instant Answer API в плоский список находок."""
+    """Разобрать ответ DuckDuckGo Instant Answer API в плоский список находок."""
     results: list[SearchResult] = []
 
     abstract = (data.get("AbstractText") or "").strip()

@@ -38,20 +38,40 @@ def test_parse_instant_answer():
     assert "https://example.com/venv" in urls
 
 
-async def test_web_search_with_mock_transport():
+SEARX_SAMPLE = {
+    "results": [
+        {"title": "Python", "url": "https://ex/py", "content": "language"},
+        {"title": "Pip", "url": "https://ex/pip", "content": "installer"},
+    ]
+}
+
+
+async def test_web_search_uses_searxng():
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.params["q"] == "python"
-        return httpx.Response(200, json=SAMPLE_IA)
+        if "/search" in request.url.path:
+            return httpx.Response(200, json=SEARX_SAMPLE)
+        return httpx.Response(200, json={})  # ddg не должен понадобиться
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http:
-        client = WebSearchClient(http)
-        results = await client.search("python", max_results=3)
-    assert 1 <= len(results) <= 3
-    assert results[0].snippet
+        results = await WebSearchClient(http).search("python", max_results=3)
+    assert results[0].url == "https://ex/py"
+    assert results[0].snippet == "language"
 
 
-async def test_web_search_network_error_returns_empty():
+async def test_web_search_falls_back_to_ddg_when_searxng_empty():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/search" in request.url.path:
+            return httpx.Response(200, json={"results": []})  # SearXNG пусто
+        return httpx.Response(200, json=SAMPLE_IA)  # DDG отдаёт
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as http:
+        results = await WebSearchClient(http).search("python")
+    assert any("example.com/python" in r.url for r in results)
+
+
+async def test_web_search_all_fail_returns_empty():
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom")
 

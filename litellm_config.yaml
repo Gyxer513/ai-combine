@@ -47,7 +47,8 @@ model_list:
         enable_thinking: false # без thinking — быстрее, дешевле (Левша-план)
   - model_name: deepseek-v3
     litellm_params:
-      model: openai/deepseek-v3
+      # На dashscope-intl актуальный id — deepseek-v3.2 (v3/v3.1/r1 дают 404).
+      model: openai/deepseek-v3.2
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
 

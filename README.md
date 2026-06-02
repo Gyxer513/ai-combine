@@ -25,8 +25,9 @@
 | `litellm` | 4000 | Этап 1 | LLM-прокси, единый OpenAI-совместимый API |
 | `qdrant` | 6333 | Этап 1 | Векторное хранилище |
 | `embeddings` (TEI) | 8081 | Этап 1 | BGE-M3 embeddings (Rust, self-hosted) |
+| `searxng` | 8888 | Этап 2 | Self-hosted метапоиск для `web_search` |
 | `openwebui` | 3000 | Этап 1 | Веб-чат |
-| `orchestrator` | 8000 | Этап 2 | FastAPI + Pydantic AI (профиль `app`) |
+| `orchestrator` | 8000 | Этап 2 | FastAPI + Pydantic AI, 3 агента (профиль `app`) |
 | `telegram-bot` | — | Этап 5 | aiogram бот (профиль `telegram`) |
 | `rag-indexer` | — | Этап 3 | Nextcloud → Qdrant краулер (профиль `indexer`) |
 
@@ -47,12 +48,24 @@ curl http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_K
 #    http://localhost:3000  — выбрать модель qwen-plus и проверить ответ
 ```
 
-## Этап 2: оркестратор и агент Колобок
+## Этап 2: оркестратор и три агента
 
-Поднят FastAPI-оркестратор с агентом 🍞 **Колобок** (General) на Pydantic AI.
-Инструменты Колобка: `web_search` (DuckDuckGo) и простая память (scratchpad-заметки
-+ многоходовой диалог по `conversation_id`). Цепочка моделей с fallback'ом
-(`owl-alpha-free` → `qwen-plus` → `qwen-max`) собрана через `FallbackModel`.
+Поднят FastAPI-оркестратор на Pydantic AI со всеми тремя агентами. Каждый —
+отдельная «модель» в OpenWebUI; переключение = выбор модели.
+
+| Агент | Модель (основная → fallback) | Чувствительность |
+|---|---|---|
+| 🍞 `kolobok` | `owl-alpha-free` → qwen-plus → qwen-max | public |
+| 🦴 `koschei` | `glm-5.1` (thinking) → nemotron-super-free → qwen-max | secret |
+| 🔨 `levsha` | `nemotron-super-free` → qwen-coder → qwen-max | internal |
+
+Инструменты (Этап 2): `web_search` (SearXNG → fallback DuckDuckGo) и простая память
+(scratchpad-заметки + многоходовой диалог по `conversation_id`). Пер-агентные
+fallback-цепочки собраны через Pydantic AI `FallbackModel` (не через LiteLLM —
+там fallbacks ключуются по реальным model_name, а не по именам агентов).
+
+Персона задаётся через `instructions=` (не `system_prompt=`): только так она
+применяется на каждом запуске, включая многоходовой диалог и путь OpenWebUI.
 
 ```bash
 docker compose --profile app up -d        # orchestrator на :8000
@@ -68,27 +81,34 @@ docker compose --profile app up -d        # orchestrator на :8000
 | `GET` | `/v1/models` | OpenAI-совместимый список (по «модели» на агента) |
 | `POST` | `/v1/chat/completions` | OpenAI-совместимый чат (stream + non-stream) |
 
-Быстрая проверка:
+Быстрая проверка (агент выбирается полем `agent`):
 
 ```bash
 curl -s http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "привет, кто ты?"}'
+  -d '{"message": "Кто ты?", "agent": "koschei"}'
 ```
 
-**Агенты в OpenWebUI:** добавь в OpenWebUI вторую OpenAI-подключку
-(Settings → Connections) с base URL `http://orchestrator:8000/v1` и любым ключом —
-агент Колобок появится как модель `kolobok`. Прямые модели LiteLLM остаются на
-первом подключении (`http://litellm:4000/v1`).
+**Агенты в OpenWebUI:** Admin Panel → Settings → Connections → OpenAI API → ＋,
+base URL `http://host.docker.internal:8000/v1` (или `http://orchestrator:8000/v1`,
+если OpenWebUI в той же compose-сети), ключ любой. В выпадашке моделей появятся
+`kolobok` / `koschei` / `levsha`. Прямые модели LiteLLM (`glm-5.1`, `qwen-*`) — это
+отдельное подключение к `http://litellm:4000/v1`, у них **нет** персоны/инструментов.
 
 ## Локальная разработка
 
 ```bash
 uv sync                       # установить зависимости
-uv run uvicorn src.orchestrator.main:app --reload --port 8000
 uv run ruff check .
 uv run pytest
+
+# Оркестратор на хосте (LiteLLM/SearXNG торчат на localhost):
+LITELLM_BASE_URL=http://localhost:4000/v1 SEARXNG_URL=http://localhost:8888 \
+  uv run uvicorn src.orchestrator.main:app --port 8000
 ```
+
+> На Windows избегай `--reload`: reloader оставляет worker-зомби, который держит
+> порт и крутит старый код. Перезапускай процесс вручную.
 
 ## Структура
 

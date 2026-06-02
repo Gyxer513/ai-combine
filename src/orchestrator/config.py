@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     qdrant_url: str = Field(default="http://qdrant:6333")
     tei_url: str = Field(default="http://embeddings:80")
 
+    # --- Веб-поиск (SearXNG, self-hosted) ---
+    searxng_url: str = Field(default="http://searxng:8080")
+
     # --- Telegram (Этап 5) ---
     telegram_bot_token: str = Field(default="")
     telegram_allowed_users: str = Field(default="")
