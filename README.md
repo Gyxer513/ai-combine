@@ -47,11 +47,39 @@ curl http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_K
 #    http://localhost:3000  — выбрать модель qwen-plus и проверить ответ
 ```
 
-Запуск оркестратора (Этап 2+):
+## Этап 2: оркестратор и агент Колобок
+
+Поднят FastAPI-оркестратор с агентом 🍞 **Колобок** (General) на Pydantic AI.
+Инструменты Колобка: `web_search` (DuckDuckGo) и простая память (scratchpad-заметки
++ многоходовой диалог по `conversation_id`). Цепочка моделей с fallback'ом
+(`owl-alpha-free` → `qwen-plus` → `qwen-max`) собрана через `FallbackModel`.
 
 ```bash
-docker compose --profile app up -d
+docker compose --profile app up -d        # orchestrator на :8000
 ```
+
+Эндпоинты оркестратора:
+
+| Метод | Путь | Назначение |
+|---|---|---|
+| `GET` | `/health`, `/health/litellm` | проверки |
+| `GET` | `/agents` | список агентов |
+| `POST` | `/chat` | нативный чат: `{message, agent?, conversation_id?}` |
+| `GET` | `/v1/models` | OpenAI-совместимый список (по «модели» на агента) |
+| `POST` | `/v1/chat/completions` | OpenAI-совместимый чат (stream + non-stream) |
+
+Быстрая проверка:
+
+```bash
+curl -s http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "привет, кто ты?"}'
+```
+
+**Агенты в OpenWebUI:** добавь в OpenWebUI вторую OpenAI-подключку
+(Settings → Connections) с base URL `http://orchestrator:8000/v1` и любым ключом —
+агент Колобок появится как модель `kolobok`. Прямые модели LiteLLM остаются на
+первом подключении (`http://litellm:4000/v1`).
 
 ## Локальная разработка
 

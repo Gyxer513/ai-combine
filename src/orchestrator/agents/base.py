@@ -1,12 +1,33 @@
-"""Базовый агент с общей логикой (Pydantic AI).
+"""Базовый слой агентов (Pydantic AI).
 
-Реализация на Этапе 2: общий клиент к LiteLLM, регистрация tools,
-константа DATA_SENSITIVITY и выбор fallback-группы модели.
+Здесь общая инфраструктура, не зависящая от конкретного агента:
+
+* `DataSensitivity` — категория данных агента (см. план: выбор моделей).
+* `build_model` — фабрика модели поверх LiteLLM с пер-агентной fallback-цепочкой
+  (`FallbackModel`): первая модель основная, остальные — резерв при сбое/лимите.
+* `load_prompt` — чтение системного промпта из `prompts/<name>.md`.
+* `AgentDeps` — общие зависимости, прокидываемые в инструменты через `RunContext`.
+
+Сами агенты (Колобок/Кощей/Левша) собираются в своих модулях.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from enum import StrEnum
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic_ai.models import Model
+from pydantic_ai.models.fallback import FallbackModel
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
+
+from ..config import settings
+from ..tools.memory import ConversationStore
+from ..tools.web_search import WebSearchClient
+
+PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 
 class DataSensitivity(StrEnum):
@@ -15,3 +36,49 @@ class DataSensitivity(StrEnum):
     PUBLIC = "public"  # любые free-модели
     INTERNAL = "internal"  # только open weights / платные
     SECRET = "secret"  # только платные / enterprise (Кощей)
+
+
+def load_prompt(name: str) -> str:
+    """Прочитать системный промпт `prompts/<name>.md`."""
+    path = PROMPTS_DIR / f"{name}.md"
+    return path.read_text(encoding="utf-8").strip()
+
+
+def build_model(model_names: list[str]) -> Model:
+    """Собрать модель поверх LiteLLM из цепочки имён моделей.
+
+    `model_names` — имена deployment'ов из `litellm_config.yaml` (например
+    ``["owl-alpha-free", "qwen-plus", "qwen-max"]``). Первая — основная, на сбое
+    или rate-limit Pydantic AI прозрачно переключается на следующую.
+    """
+    if not model_names:
+        raise ValueError("model_names не может быть пустым")
+
+    provider = OpenAIProvider(
+        base_url=settings.litellm_base_url,
+        api_key=settings.litellm_master_key,
+    )
+    models = [OpenAIChatModel(name, provider=provider) for name in model_names]
+    if len(models) == 1:
+        return models[0]
+    return FallbackModel(*models)
+
+
+@dataclass(slots=True)
+class AgentDeps:
+    """Зависимости, доступные инструментам агента через `RunContext`.
+
+    Создаётся на время одного запроса. `conversation_id` связывает вызов
+    с историей и scratchpad-заметками в общем `ConversationStore`.
+    """
+
+    conversation_id: str
+    web: WebSearchClient
+    store: ConversationStore
+    extra: dict[str, str] = field(default_factory=dict)
+
+
+@lru_cache(maxsize=1)
+def shared_store() -> ConversationStore:
+    """Единый на процесс стор истории/заметок (Этап 2 — in-memory)."""
+    return ConversationStore()

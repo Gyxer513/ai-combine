@@ -1,7 +1,7 @@
 """FastAPI entrypoint оркестратора.
 
-Этап 1: только health-check и проверка связи с LiteLLM.
-Этап 2+: подключаются агенты и /chat (см. api/routes.py).
+Этап 1: health-check и проверка связи с LiteLLM.
+Этап 2: агенты и /chat + OpenAI-совместимый /v1 (см. api/routes.py).
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import httpx
 import structlog
 from fastapi import FastAPI
 
+from .api import routes
 from .config import settings
 
 log = structlog.get_logger()
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Combine Orchestrator", version="0.1.0", lifespan=lifespan)
+app.include_router(routes.router)
 
 
 @app.get("/health")
@@ -48,6 +50,3 @@ async def health_litellm() -> dict[str, object]:
         return {"status": "ok", "models": models}
     except httpx.HTTPError as exc:
         return {"status": "error", "detail": str(exc)}
-
-
-# Этап 2: app.include_router(routes.router)
