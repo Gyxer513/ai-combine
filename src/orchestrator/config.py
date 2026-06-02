@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     rag_notes_default_ns: str = Field(default="personal")
     # WebDAV: какие папки в какой namespace (CSV "/путь:namespace").
     rag_webdav_folders: str = Field(default="")
+    # Интервал автоиндексации в минутах: >0 — индексатор работает циклом, 0 — один проход.
+    rag_index_interval_min: int = Field(default=0)
 
     # --- Веб-поиск (SearXNG, self-hosted) ---
     searxng_url: str = Field(default="http://searxng:8080")

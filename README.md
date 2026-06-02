@@ -38,8 +38,8 @@
 cp .env.example .env
 #   заполни ALIBABA_API_KEY, ALIBABA_WORKSPACE_ID, OPENROUTER_API_KEY, LITELLM_MASTER_KEY
 
-# 2. Поднять инфру Этапа 1 (litellm + qdrant + tei + openwebui)
-docker compose up -d litellm qdrant embeddings openwebui
+# 2. Поднять инфру (litellm + qdrant + searxng + openwebui)
+docker compose up -d litellm qdrant searxng openwebui
 
 # 3. Проверить роутинг LiteLLM
 curl http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY"
@@ -136,6 +136,24 @@ docker compose --profile telegram up -d
 # либо на хосте (оркестратор на localhost):
 ORCHESTRATOR_URL=http://localhost:8010 uv run python -m src.telegram_bot.main
 ```
+
+## Всё в Docker (durable, always-on)
+
+Чтобы система пережила перезагрузку и база знаний оставалась свежей — запускай
+оркестратор, бота и автоиндексатор в Docker (у всех `restart: unless-stopped`):
+
+```bash
+docker compose up -d                              # инфра: litellm, qdrant, searxng, openwebui
+docker compose --profile app up -d                # orchestrator (:8000) + авто-RAG-индексатор
+docker compose --profile telegram up -d           # telegram-бот
+```
+
+- Авто-индексация: `rag-indexer` крутится циклом каждые `RAG_INDEX_INTERVAL_MIN`
+  минут (дефолт 60). Разовый прогон: `docker compose run --rm -e RAG_INDEX_INTERVAL_MIN=0 rag-indexer`.
+- В Docker оркестратор доступен сервисам по имени `orchestrator:8000` — в OpenWebUI
+  укажи подключение `http://orchestrator:8000/v1` (не `host.docker.internal`).
+- localhost-оверрайды (`LITELLM_BASE_URL=...localhost...`) нужны ТОЛЬКО при запуске
+  на хосте; в Docker дефолты (имена сервисов) работают сами.
 
 ## Локальная разработка
 

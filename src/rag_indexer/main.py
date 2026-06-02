@@ -16,6 +16,7 @@ from pathlib import Path
 import httpx
 import structlog
 
+from src.orchestrator.config import settings
 from src.orchestrator.rag.embedder import EmbeddingClient
 from src.orchestrator.rag.store import VectorStore, point_id
 
@@ -110,15 +111,29 @@ def _save_manifest(manifest: dict[str, str]) -> None:
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def main() -> None:
-    manifest = _load_manifest()
-    stats = asyncio.run(run(manifest))
-    _save_manifest(manifest)
-    print(
+def _format_stats(stats: dict[str, int]) -> str:
+    return (
         f"Готово: документов {stats['docs']}, "
         f"проиндексировано {stats['indexed']}, пропущено {stats['skipped']}, "
         f"чанков записано {stats['chunks']}."
     )
+
+
+async def _amain() -> None:
+    """Один проход или цикл по интервалу (RAG_INDEX_INTERVAL_MIN)."""
+    interval = settings.rag_index_interval_min
+    manifest = await asyncio.to_thread(_load_manifest)
+    while True:
+        stats = await run(manifest)
+        await asyncio.to_thread(_save_manifest, manifest)
+        print(_format_stats(stats), flush=True)
+        if interval <= 0:
+            return
+        await asyncio.sleep(interval * 60)
+
+
+def main() -> None:
+    asyncio.run(_amain())
 
 
 if __name__ == "__main__":

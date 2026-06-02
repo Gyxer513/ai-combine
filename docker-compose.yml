@@ -89,7 +89,10 @@ services:
     profiles: ["telegram"]
     restart: unless-stopped
 
-  # --- RAG-индексатор (Этап 3, профиль indexer; запускать по cron/вручную) ---
+  # --- RAG-индексатор (Этап 3) ---
+  # В профиле app работает циклом (RAG_INDEX_INTERVAL_MIN, дефолт 60 мин) —
+  # база знаний остаётся свежей. Разовый прогон:
+  #   docker compose run --rm -e RAG_INDEX_INTERVAL_MIN=0 rag-indexer
   rag-indexer:
     build:
       context: .
@@ -98,8 +101,11 @@ services:
     environment:
       - QDRANT_URL=http://qdrant:6333
       - LITELLM_BASE_URL=http://litellm:4000/v1
+      - RAG_INDEX_INTERVAL_MIN=${RAG_INDEX_INTERVAL_MIN:-60}
+    volumes:
+      - ./data:/app/data
     depends_on:
       - qdrant
       - litellm
-    profiles: ["indexer"]
-    restart: "no"
+    profiles: ["app", "indexer"]
+    restart: unless-stopped
