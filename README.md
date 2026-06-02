@@ -95,6 +95,30 @@ base URL `http://host.docker.internal:8000/v1` (или `http://orchestrator:8000
 `kolobok` / `koschei` / `levsha`. Прямые модели LiteLLM (`glm-5.1`, `qwen-*`) — это
 отдельное подключение к `http://litellm:4000/v1`, у них **нет** персоны/инструментов.
 
+## Этап 3: RAG (база знаний из Nextcloud)
+
+Агенты ищут по личной базе знаний через `search_knowledge_base`. Embeddings —
+**через API** (Alibaba `text-embedding-v4` за LiteLLM, dim 1024), без локального
+TEI/BGE-M3 — бережём RAM. Вектора в Qdrant, по коллекции на namespace.
+
+- Источники: Nextcloud **Notes** (категория → namespace) и **WebDAV-папки**.
+- Namespace на агента: Колобок→`personal`, Кощей→`security`, Левша→`coding`.
+- Индексатор инкрементальный: манифест `data/rag_manifest.json` хранит хэши,
+  неизменённые документы не переэмбеддятся.
+
+Заполни в `.env`: `NEXTCLOUD_URL`, `NEXTCLOUD_USER`, `NEXTCLOUD_APP_PASSWORD`
+(пароль приложения из Настройки → Безопасность). Маппинг категорий Notes —
+`RAG_NOTES_CATEGORY_MAP="Security:security, Dev:coding"`; папок WebDAV —
+`RAG_WEBDAV_FOLDERS="/Knowledge/Security:security"`.
+
+```bash
+# Индексация (профиль indexer в Docker или напрямую):
+docker compose --profile indexer run --rm rag-indexer
+# либо на хосте:
+LITELLM_BASE_URL=http://localhost:4000/v1 QDRANT_URL=http://localhost:6333 \
+  uv run python -m src.rag_indexer.main
+```
+
 ## Локальная разработка
 
 ```bash
@@ -102,8 +126,9 @@ uv sync                       # установить зависимости
 uv run ruff check .
 uv run pytest
 
-# Оркестратор на хосте (LiteLLM/SearXNG торчат на localhost):
+# Оркестратор на хосте (сервисы торчат на localhost):
 LITELLM_BASE_URL=http://localhost:4000/v1 SEARXNG_URL=http://localhost:8888 \
+  QDRANT_URL=http://localhost:6333 \
   uv run uvicorn src.orchestrator.main:app --port 8000
 ```
 

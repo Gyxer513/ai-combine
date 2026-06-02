@@ -26,8 +26,9 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from ..agents.base import AgentDeps, shared_store
+from ..agents.base import AgentDeps, shared_store, shared_vstore
 from ..agents.registry import REGISTRY, get_agent
+from ..rag.embedder import EmbeddingClient
 from ..tools.web_search import WebSearchClient
 from .schemas import (
     AgentInfo,
@@ -43,10 +44,13 @@ router = APIRouter()
 
 def _build_deps(request: Request, conversation_id: str) -> AgentDeps:
     """Собрать зависимости агента на один запрос."""
+    http = request.app.state.http
     return AgentDeps(
         conversation_id=conversation_id,
-        web=WebSearchClient(request.app.state.http),
+        web=WebSearchClient(http),
         store=shared_store(),
+        embedder=EmbeddingClient(http),
+        vstore=shared_vstore(),
     )
 
 

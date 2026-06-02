@@ -13,6 +13,7 @@ from __future__ import annotations
 from pydantic_ai import Agent
 
 from ..tools.common import register_common_tools
+from ..tools.rag import register_rag_tool
 from .base import AgentDeps, DataSensitivity, build_model, load_prompt
 
 NAME = "kolobok"
@@ -32,3 +33,4 @@ agent = Agent(
     name=NAME,
 )
 register_common_tools(agent)
+register_rag_tool(agent, namespace="personal")

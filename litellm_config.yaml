@@ -52,6 +52,14 @@ model_list:
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
 
+  # === Embeddings (Alibaba API, для RAG) ===
+  # Через API, без локального TEU/BGE-M3 — экономим RAM на слабом сервере.
+  - model_name: embed
+    litellm_params:
+      model: openai/text-embedding-v4
+      api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+      api_key: os.environ/ALIBABA_API_KEY
+
   # === OpenRouter free ===
   - model_name: nemotron-super-free
     litellm_params:

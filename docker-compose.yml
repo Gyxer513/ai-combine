@@ -34,21 +34,8 @@ services:
       - ./data/qdrant:/qdrant/storage
     restart: unless-stopped
 
-  # --- Embeddings: TEI + BGE-M3 (Этап 1) ---
-  embeddings:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    # для GPU: ghcr.io/huggingface/text-embeddings-inference:1.5
-    ports: ["8081:80"]
-    command: ["--model-id", "BAAI/bge-m3", "--max-batch-tokens", "16384"]
-    volumes:
-      - ./data/tei-cache:/data
-    environment:
-      - HF_HUB_ENABLE_HF_TRANSFER=1
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-    restart: unless-stopped
+  # Embeddings берутся через API (Alibaba text-embedding-v4 за LiteLLM) —
+  # self-hosted TEI/BGE-M3 убран, чтобы не жрать RAM на слабом сервере.
 
   # --- Веб-поиск для агентов (SearXNG, self-hosted) ---
   searxng:
@@ -83,7 +70,6 @@ services:
     environment:
       - LITELLM_BASE_URL=http://litellm:4000/v1
       - QDRANT_URL=http://qdrant:6333
-      - TEI_URL=http://embeddings:80
       - SEARXNG_URL=http://searxng:8080
     depends_on:
       - litellm
@@ -111,9 +97,9 @@ services:
     env_file: .env
     environment:
       - QDRANT_URL=http://qdrant:6333
-      - TEI_URL=http://embeddings:80
+      - LITELLM_BASE_URL=http://litellm:4000/v1
     depends_on:
       - qdrant
-      - embeddings
+      - litellm
     profiles: ["indexer"]
     restart: "no"

@@ -24,6 +24,8 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from ..config import settings
+from ..rag.embedder import EmbeddingClient
+from ..rag.store import VectorStore
 from ..tools.memory import ConversationStore
 from ..tools.web_search import WebSearchClient
 
@@ -70,11 +72,14 @@ class AgentDeps:
 
     Создаётся на время одного запроса. `conversation_id` связывает вызов
     с историей и scratchpad-заметками в общем `ConversationStore`.
+    `embedder`/`vstore` нужны инструменту RAG (None — если RAG не сконфигурирован).
     """
 
     conversation_id: str
     web: WebSearchClient
     store: ConversationStore
+    embedder: EmbeddingClient | None = None
+    vstore: VectorStore | None = None
     extra: dict[str, str] = field(default_factory=dict)
 
 
@@ -82,3 +87,9 @@ class AgentDeps:
 def shared_store() -> ConversationStore:
     """Единый на процесс стор истории/заметок (Этап 2 — in-memory)."""
     return ConversationStore()
+
+
+@lru_cache(maxsize=1)
+def shared_vstore() -> VectorStore:
+    """Единое на процесс подключение к Qdrant."""
+    return VectorStore()

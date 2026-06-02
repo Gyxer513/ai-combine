@@ -22,9 +22,9 @@ telegram = [
     "aiogram>=3.13",
 ]
 rag = [
-    "llama-index>=0.12",
     "qdrant-client>=1.12",
     "webdav4>=0.10",
+    "tiktoken>=0.8",
 ]
 
 [dependency-groups]
