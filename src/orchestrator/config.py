@@ -75,11 +75,17 @@ class Settings(BaseSettings):
 
     @property
     def allowed_user_ids(self) -> set[int]:
-        """Whitelist Telegram user_id из строки '123,456'."""
-        raw = self.telegram_allowed_users.strip()
-        if not raw:
-            return set()
-        return {int(x) for x in raw.split(",") if x.strip()}
+        """Whitelist Telegram user_id из строки '123,456'.
+
+        Нечисловые значения (например @username) игнорируются — нужен числовой
+        id (см. @userinfobot). Если в итоге пусто — bootstrap-режим (пускает всех).
+        """
+        ids: set[int] = set()
+        for token in self.telegram_allowed_users.split(","):
+            token = token.strip()
+            if token.isdigit():
+                ids.add(int(token))
+        return ids
 
 
 settings = Settings()
