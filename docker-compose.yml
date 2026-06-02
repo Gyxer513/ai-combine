@@ -83,13 +83,14 @@ services:
     restart: unless-stopped
 
   # --- Telegram-бот (Этап 5, профиль telegram) ---
+  # Без depends_on на orchestrator: бот только поллит Telegram и ходит в
+  # оркестратор по HTTP при сообщении (с ретраем) — на старте тот не нужен.
+  # Cross-profile depends_on иначе ломал бы `--profile telegram` в одиночку.
   telegram-bot:
     build:
       context: .
       dockerfile: docker/telegram.Dockerfile
     env_file: .env
-    depends_on:
-      - orchestrator
     profiles: ["telegram"]
     restart: unless-stopped
 

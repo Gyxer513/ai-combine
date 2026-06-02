@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import httpx
 
+from src.orchestrator.config import settings
+
 
 class OrchestratorClient:
     """Тонкая обёртка над /chat оркестратора."""
@@ -17,7 +19,7 @@ class OrchestratorClient:
         resp = await self._http.post(
             f"{self._base_url}/chat",
             json={"message": message, "agent": agent, "conversation_id": conversation_id},
-            timeout=180,
+            timeout=settings.telegram_reply_timeout_sec,
         )
         resp.raise_for_status()
         return resp.json()["reply"]
