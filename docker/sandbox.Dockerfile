@@ -7,7 +7,10 @@ FROM python:3.12-slim
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        git curl ca-certificates ripgrep jq \
+        # code: git, ripgrep, jq, python (база уже python:3.12-slim)
+        git ca-certificates ripgrep jq \
+        # secops: nmap, dns, tls, net
+        nmap dnsutils openssl curl netcat-openbsd iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Непривилегированный пользователь

@@ -13,6 +13,8 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "httpx>=0.27",
+    # --- Sandbox (Этап 6): порождение изолированных контейнеров ---
+    "docker>=7.1",
     # --- Логи ---
     "structlog>=24.4",
 ]
@@ -22,9 +24,9 @@ telegram = [
     "aiogram>=3.13",
 ]
 rag = [
-    "llama-index>=0.12",
     "qdrant-client>=1.12",
     "webdav4>=0.10",
+    "tiktoken>=0.8",
 ]
 
 [dependency-groups]

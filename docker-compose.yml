@@ -34,20 +34,17 @@ services:
       - ./data/qdrant:/qdrant/storage
     restart: unless-stopped
 
-  # --- Embeddings: TEI + BGE-M3 (Этап 1) ---
-  embeddings:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    # для GPU: ghcr.io/huggingface/text-embeddings-inference:1.5
-    ports: ["8081:80"]
-    command: ["--model-id", "BAAI/bge-m3", "--max-batch-tokens", "16384"]
+  # Embeddings берутся через API (Alibaba text-embedding-v4 за LiteLLM) —
+  # self-hosted TEI/BGE-M3 убран, чтобы не жрать RAM на слабом сервере.
+
+  # --- Веб-поиск для агентов (SearXNG, self-hosted) ---
+  searxng:
+    image: searxng/searxng:latest
+    ports: ["8888:8080"]
     volumes:
-      - ./data/tei-cache:/data
+      - ./searxng:/etc/searxng:rw
     environment:
-      - HF_HUB_ENABLE_HF_TRANSFER=1
-    deploy:
-      resources:
-        limits:
-          memory: 4G
+      - SEARXNG_BASE_URL=http://localhost:8888/
     restart: unless-stopped
 
   # --- Веб-чат (Этап 1) ---
@@ -73,10 +70,15 @@ services:
     environment:
       - LITELLM_BASE_URL=http://litellm:4000/v1
       - QDRANT_URL=http://qdrant:6333
-      - TEI_URL=http://embeddings:80
+      - SEARXNG_URL=http://searxng:8080
+    volumes:
+      # Этап 6: оркестратор порождает sandbox-контейнеры через docker.sock.
+      # Привилегия (orchestrator RCE = хост) — sandbox'ы зато зажаты по максимуму.
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - litellm
       - qdrant
+      - searxng
     profiles: ["app"]
     restart: unless-stopped
 
@@ -91,7 +93,10 @@ services:
     profiles: ["telegram"]
     restart: unless-stopped
 
-  # --- RAG-индексатор (Этап 3, профиль indexer; запускать по cron/вручную) ---
+  # --- RAG-индексатор (Этап 3) ---
+  # В профиле app работает циклом (RAG_INDEX_INTERVAL_MIN, дефолт 60 мин) —
+  # база знаний остаётся свежей. Разовый прогон:
+  #   docker compose run --rm -e RAG_INDEX_INTERVAL_MIN=0 rag-indexer
   rag-indexer:
     build:
       context: .
@@ -99,9 +104,12 @@ services:
     env_file: .env
     environment:
       - QDRANT_URL=http://qdrant:6333
-      - TEI_URL=http://embeddings:80
+      - LITELLM_BASE_URL=http://litellm:4000/v1
+      - RAG_INDEX_INTERVAL_MIN=${RAG_INDEX_INTERVAL_MIN:-60}
+    volumes:
+      - ./data:/app/data
     depends_on:
       - qdrant
-      - embeddings
-    profiles: ["indexer"]
-    restart: "no"
+      - litellm
+    profiles: ["app", "indexer"]
+    restart: unless-stopped

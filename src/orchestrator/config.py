@@ -19,13 +19,40 @@ class Settings(BaseSettings):
     litellm_base_url: str = Field(default="http://litellm:4000/v1")
     litellm_master_key: str = Field(default="sk-litellm-change-me")
 
-    # --- Векторное хранилище / embeddings ---
+    # --- Векторное хранилище / embeddings (через API, без локального TEI) ---
     qdrant_url: str = Field(default="http://qdrant:6333")
-    tei_url: str = Field(default="http://embeddings:80")
+    embed_model: str = Field(default="embed")  # имя модели в LiteLLM (text-embedding-v4)
+    embed_dim: int = Field(default=1024)
+
+    # --- RAG ---
+    rag_top_k: int = Field(default=5)
+    rag_chunk_tokens: int = Field(default=512)
+    rag_chunk_overlap: int = Field(default=64)
+    # Notes: какие категории в какой namespace (CSV "Категория:namespace").
+    # Несопоставленные категории падают в rag_notes_default_ns.
+    rag_notes_category_map: str = Field(default="")
+    rag_notes_default_ns: str = Field(default="personal")
+    # WebDAV: какие папки в какой namespace (CSV "/путь:namespace").
+    rag_webdav_folders: str = Field(default="")
+    # Интервал автоиндексации в минутах: >0 — индексатор работает циклом, 0 — один проход.
+    rag_index_interval_min: int = Field(default=0)
+
+    # --- Sandbox (Этап 6: изолированное исполнение команд) ---
+    sandbox_image: str = Field(default="ai-combine/sandbox:latest")
+    sandbox_mem: str = Field(default="512m")
+    sandbox_cpus: float = Field(default=1.0)
+    sandbox_pids: int = Field(default=256)
+    sandbox_timeout_sec: int = Field(default=60)
+    sandbox_output_limit: int = Field(default=8000)  # символов вывода в ответ модели
+
+    # --- Веб-поиск (SearXNG, self-hosted) ---
+    searxng_url: str = Field(default="http://searxng:8080")
 
     # --- Telegram (Этап 5) ---
     telegram_bot_token: str = Field(default="")
     telegram_allowed_users: str = Field(default="")
+    # Куда бот ходит за ответами агентов (в docker — имя сервиса).
+    orchestrator_url: str = Field(default="http://orchestrator:8000")
 
     # --- Nextcloud (Этап 3) ---
     nextcloud_url: str = Field(default="")
@@ -37,12 +64,38 @@ class Settings(BaseSettings):
     gitea_token: str = Field(default="")
 
     @property
+    def notes_category_map(self) -> dict[str, str]:
+        """'AI Projects:personal, Security:security' -> {'AI Projects': 'personal', ...}."""
+        out: dict[str, str] = {}
+        for pair in self.rag_notes_category_map.split(","):
+            cat, _, ns = pair.partition(":")
+            if cat.strip() and ns.strip():
+                out[cat.strip()] = ns.strip()
+        return out
+
+    @property
+    def webdav_folders(self) -> list[tuple[str, str]]:
+        """'/Knowledge/Security:security' -> [('/Knowledge/Security', 'security'), ...]."""
+        out: list[tuple[str, str]] = []
+        for pair in self.rag_webdav_folders.split(","):
+            path, _, ns = pair.rpartition(":")
+            if path.strip() and ns.strip():
+                out.append((path.strip(), ns.strip()))
+        return out
+
+    @property
     def allowed_user_ids(self) -> set[int]:
-        """Whitelist Telegram user_id из строки '123,456'."""
-        raw = self.telegram_allowed_users.strip()
-        if not raw:
-            return set()
-        return {int(x) for x in raw.split(",") if x.strip()}
+        """Whitelist Telegram user_id из строки '123,456'.
+
+        Нечисловые значения (например @username) игнорируются — нужен числовой
+        id (см. @userinfobot). Если в итоге пусто — bootstrap-режим (пускает всех).
+        """
+        ids: set[int] = set()
+        for token in self.telegram_allowed_users.split(","):
+            token = token.strip()
+            if token.isdigit():
+                ids.add(int(token))
+        return ids
 
 
 settings = Settings()
