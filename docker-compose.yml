@@ -1,0 +1,107 @@
+# ============================================================
+# AI Combine — docker-compose
+#
+# Этап 1 (инфра, запускается по умолчанию):
+#   docker compose up -d litellm qdrant embeddings openwebui
+#
+# Этап 2+ (приложение, профиль app):
+#   docker compose --profile app up -d
+#   docker compose --profile telegram up -d
+#   docker compose --profile indexer up -d
+# ============================================================
+
+services:
+  # --- LLM-прокси (Этап 1) ---
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    ports: ["4000:4000"]
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    env_file: .env
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4000/health/liveliness"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --- Векторное хранилище (Этап 1, наполняется на Этапе 3) ---
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports: ["6333:6333"]
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    restart: unless-stopped
+
+  # --- Embeddings: TEI + BGE-M3 (Этап 1) ---
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    # для GPU: ghcr.io/huggingface/text-embeddings-inference:1.5
+    ports: ["8081:80"]
+    command: ["--model-id", "BAAI/bge-m3", "--max-batch-tokens", "16384"]
+    volumes:
+      - ./data/tei-cache:/data
+    environment:
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    restart: unless-stopped
+
+  # --- Веб-чат (Этап 1) ---
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports: ["3000:8080"]
+    volumes:
+      - ./data/openwebui:/app/backend/data
+    environment:
+      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+    depends_on:
+      - litellm
+    restart: unless-stopped
+
+  # --- Оркестратор (Этап 2, профиль app) ---
+  orchestrator:
+    build:
+      context: .
+      dockerfile: docker/orchestrator.Dockerfile
+    ports: ["8000:8000"]
+    env_file: .env
+    environment:
+      - LITELLM_BASE_URL=http://litellm:4000/v1
+      - QDRANT_URL=http://qdrant:6333
+      - TEI_URL=http://embeddings:80
+    depends_on:
+      - litellm
+      - qdrant
+    profiles: ["app"]
+    restart: unless-stopped
+
+  # --- Telegram-бот (Этап 5, профиль telegram) ---
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: docker/telegram.Dockerfile
+    env_file: .env
+    depends_on:
+      - orchestrator
+    profiles: ["telegram"]
+    restart: unless-stopped
+
+  # --- RAG-индексатор (Этап 3, профиль indexer; запускать по cron/вручную) ---
+  rag-indexer:
+    build:
+      context: .
+      dockerfile: docker/indexer.Dockerfile
+    env_file: .env
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - TEI_URL=http://embeddings:80
+    depends_on:
+      - qdrant
+      - embeddings
+    profiles: ["indexer"]
+    restart: "no"
