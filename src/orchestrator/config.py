@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # --- Telegram (Этап 5) ---
     telegram_bot_token: str = Field(default="")
     telegram_allowed_users: str = Field(default="")
+    # Куда бот ходит за ответами агентов (в docker — имя сервиса).
+    orchestrator_url: str = Field(default="http://orchestrator:8000")
 
     # --- Nextcloud (Этап 3) ---
     nextcloud_url: str = Field(default="")

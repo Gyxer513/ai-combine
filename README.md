@@ -119,6 +119,24 @@ LITELLM_BASE_URL=http://localhost:4000/v1 QDRANT_URL=http://localhost:6333 \
   uv run python -m src.rag_indexer.main
 ```
 
+## Этап 5: Telegram-бот
+
+Бот на aiogram 3 — мост к оркестратору (сам LLM не зовёт). Доступ по whitelist.
+
+- Команды: `/kolobok` `/koschei` `/levsha` (алиасы `/ask` `/sec` `/code`) —
+  переключают агента; `/who` — кто активен; `/reset` — забыть историю.
+- Обычный текст уходит активному агенту; история по `tg:<chat_id>:<session>`.
+
+В `.env`: `TELEGRAM_BOT_TOKEN` (от @BotFather), `TELEGRAM_ALLOWED_USERS`
+(user_id через запятую, узнать у @userinfobot). Пустой whitelist = пускает всех
+(bootstrap, для первого запуска) — потом обязательно заполни.
+
+```bash
+docker compose --profile telegram up -d
+# либо на хосте (оркестратор на localhost):
+ORCHESTRATOR_URL=http://localhost:8010 uv run python -m src.telegram_bot.main
+```
+
 ## Локальная разработка
 
 ```bash
