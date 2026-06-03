@@ -29,6 +29,7 @@ from pydantic_ai.messages import (
 from ..agents.base import AgentDeps, shared_store, shared_vstore
 from ..agents.registry import REGISTRY, get_agent
 from ..rag.embedder import EmbeddingClient
+from ..tools.shell import BrokerClient
 from ..tools.web_search import WebSearchClient
 from .schemas import (
     AgentInfo,
@@ -51,6 +52,7 @@ def _build_deps(request: Request, conversation_id: str) -> AgentDeps:
         store=shared_store(),
         embedder=EmbeddingClient(http),
         vstore=shared_vstore(),
+        broker=BrokerClient(http),
     )
 
 

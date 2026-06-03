@@ -28,6 +28,7 @@ from ..rag.embedder import EmbeddingClient
 from ..rag.store import VectorStore
 from ..tools.guard import UNTRUSTED_PREAMBLE
 from ..tools.memory import ConversationStore
+from ..tools.shell import BrokerClient
 from ..tools.web_search import WebSearchClient
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
@@ -87,6 +88,7 @@ class AgentDeps:
     store: ConversationStore
     embedder: EmbeddingClient | None = None
     vstore: VectorStore | None = None
+    broker: BrokerClient | None = None  # клиент sandbox-broker (shell-инструменты)
     extra: dict[str, str] = field(default_factory=dict)
 
 

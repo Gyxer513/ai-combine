@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     rag_index_interval_min: int = Field(default=0)
 
     # --- Sandbox (Этап 6: изолированное исполнение команд) ---
+    # Оркестратор НЕ имеет docker.sock — он ходит в sandbox-broker по HTTP.
+    # docker.sock есть только у брокера; параметры ниже читает брокер.
+    broker_url: str = Field(default="http://sandbox-broker:9000")
     sandbox_image: str = Field(default="ai-combine/sandbox:latest")
     sandbox_mem: str = Field(default="512m")
     sandbox_cpus: float = Field(default=1.0)
