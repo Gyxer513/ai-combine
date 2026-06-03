@@ -13,6 +13,7 @@ from __future__ import annotations
 from pydantic_ai import Agent
 
 from ..tools.common import register_common_tools
+from ..tools.guard import CODER_ALLOWED
 from ..tools.rag import register_rag_tool
 from ..tools.shell import register_shell_tool
 from .base import AgentDeps, DataSensitivity, build_model, load_prompt
@@ -38,4 +39,5 @@ register_shell_tool(
     network=False,  # прогон кода/тестов — без сети
     name="run_shell",
     what="Запуск кода/тестов/линтеров",
+    allowed=CODER_ALLOWED,  # интерпретаторы ок: sandbox без сети, эксфил невозможен
 )
