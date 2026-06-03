@@ -62,11 +62,15 @@ class DeckClient:
         return await self._get(f"{_API}/boards/{board_id}/stacks")
 
     async def move_card(
-        self, board_id: int, stack_id: int, card_id: int, target_stack_id: int, *, order: int = 0
+        self, board_id: int, card_id: int, target_stack_id: int, *, order: int = 0
     ) -> None:
-        """Перенести карточку в другой стек (claim/Done)."""
+        """Перенести карточку в стек `target_stack_id` (claim/Done).
+
+        ВАЖНО: Deck-`reorder` ожидает в URL ЦЕЛЕВОЙ стек, а не исходный — иначе
+        возвращает 200, но карточку между стеками не переносит (проверено на живом API).
+        """
         resp = await self._http.put(
-            f"{self._base}{_API}/boards/{board_id}/stacks/{stack_id}/cards/{card_id}/reorder",
+            f"{self._base}{_API}/boards/{board_id}/stacks/{target_stack_id}/cards/{card_id}/reorder",
             json={"order": order, "stackId": target_stack_id},
             auth=self._auth,
             headers=self._headers,

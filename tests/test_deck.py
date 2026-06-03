@@ -58,8 +58,8 @@ class _FakeDeck:
         self.moves: list[tuple] = []
         self.comments: list[tuple] = []
 
-    async def move_card(self, board_id, stack_id, card_id, target_stack_id, *, order=0):
-        self.moves.append((stack_id, target_stack_id, card_id))
+    async def move_card(self, board_id, card_id, target_stack_id, *, order=0):
+        self.moves.append((card_id, target_stack_id))
 
     async def add_comment(self, card_id, message):
         self.comments.append((card_id, message))
@@ -81,7 +81,7 @@ class _FakeOrch:
 async def _process(deck, orch, card):
     await process_card(
         deck, orch, card,
-        board_id=22, todo_id=54, doing_id=55, done_id=56,
+        board_id=22, doing_id=55, done_id=56,
         mapping={"sec": "koschei", "code": "levsha", "ask": "kolobok"},
         default="kolobok",
     )
@@ -90,8 +90,8 @@ async def _process(deck, orch, card):
 async def test_process_card_happy_path():
     deck, orch = _FakeDeck(), _FakeOrch(reply="Токио")
     await _process(deck, orch, {"id": 98, "title": "Столица Японии?", "labels": [{"title": "ask"}]})
-    # claim в In Progress, затем перенос в Done
-    assert deck.moves == [(54, 55, 98), (55, 56, 98)]
+    # claim в In Progress (55), затем перенос в Done (56)
+    assert deck.moves == [(98, 55), (98, 56)]
     # агент выбран по метке, conversation_id привязан к карточке
     assert orch.calls[0][1] == "kolobok"
     assert orch.calls[0][2] == "deck:98"
@@ -102,5 +102,5 @@ async def test_process_card_happy_path():
 async def test_process_card_failure_still_moves_to_done():
     deck, orch = _FakeDeck(), _FakeOrch(fail=True)
     await _process(deck, orch, {"id": 99, "title": "X", "labels": [{"title": "sec"}]})
-    assert deck.moves == [(54, 55, 99), (55, 56, 99)]  # всё равно доехала до Done
+    assert deck.moves == [(99, 55), (99, 56)]  # всё равно доехала до Done
     assert "❌" in deck.comments[0][1]  # с пометкой об ошибке

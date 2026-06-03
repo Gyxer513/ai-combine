@@ -63,7 +63,6 @@ async def process_card(
     card: dict,
     *,
     board_id: int,
-    todo_id: int,
     doing_id: int,
     done_id: int,
     mapping: dict[str, str],
@@ -74,7 +73,7 @@ async def process_card(
     agent = agent_for_card(card, mapping, default)
     log.info("deck.card.start", card=card_id, agent=agent, title=card.get("title"))
 
-    await deck.move_card(board_id, todo_id, card_id, doing_id)  # claim
+    await deck.move_card(board_id, card_id, doing_id)  # claim (In Progress)
     try:
         reply = await orch.chat(card_prompt(card), agent, f"deck:{card_id}")
         await deck.add_comment(card_id, f"🤖 {agent}:\n\n{reply or '(пустой ответ)'}")
@@ -83,7 +82,7 @@ async def process_card(
         log.warning("deck.card.failed", card=card_id, agent=agent, error=str(exc))
         with contextlib.suppress(Exception):  # коммент не критичен для переноса в Done
             await deck.add_comment(card_id, f"❌ Не удалось выполнить: {exc}")
-    await deck.move_card(board_id, doing_id, card_id, done_id)
+    await deck.move_card(board_id, card_id, done_id)
 
 
 async def run_once(deck: DeckClient, orch: OrchestratorClient) -> None:
@@ -112,7 +111,6 @@ async def run_once(deck: DeckClient, orch: OrchestratorClient) -> None:
                 orch,
                 card,
                 board_id=board["id"],
-                todo_id=todo["id"],
                 doing_id=doing["id"],
                 done_id=done["id"],
                 mapping=mapping,
