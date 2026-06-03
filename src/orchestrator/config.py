@@ -88,6 +88,14 @@ class Settings(BaseSettings):
     gitea_url: str = Field(default="")
     gitea_token: str = Field(default="")
 
+    # --- GitHub (Левша: репозитории; перемычка для хоумлаба) ---
+    # Левша на хоумлабе пушит в GitHub (рабочий GitLab за VPN недоступен надёжно),
+    # синхронизация GitHub↔GitLab — вручную человеком. PAT scoped на репозиторий.
+    github_api_url: str = Field(default="https://api.github.com")
+    github_token: str = Field(default="")
+    github_repo: str = Field(default="")  # "owner/name"
+    github_default_branch: str = Field(default="main")
+
     @property
     def notes_category_map(self) -> dict[str, str]:
         """'AI Projects:personal, Security:security' -> {'AI Projects': 'personal', ...}."""

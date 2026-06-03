@@ -30,6 +30,7 @@ from ..agents.base import AgentDeps, shared_store, shared_vstore
 from ..agents.registry import REGISTRY, get_agent
 from ..metrics import shared_metrics
 from ..rag.embedder import EmbeddingClient
+from ..tools.github import GitHubClient
 from ..tools.shell import BrokerClient
 from ..tools.web_search import WebSearchClient
 from .schemas import (
@@ -54,6 +55,7 @@ def _build_deps(request: Request, conversation_id: str) -> AgentDeps:
         embedder=EmbeddingClient(http),
         vstore=shared_vstore(),
         broker=BrokerClient(http),
+        github=GitHubClient(http),
     )
 
 
