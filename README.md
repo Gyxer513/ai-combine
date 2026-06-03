@@ -161,6 +161,28 @@ docker compose --profile telegram up -d           # telegram-бот
 - localhost-оверрайды (`LITELLM_BASE_URL=...localhost...`) нужны ТОЛЬКО при запуске
   на хосте; в Docker дефолты (имена сервисов) работают сами.
 
+## Автономия: Deck-worker (задачи из Nextcloud Deck)
+
+`deck-worker` выполняет задачи **без участия человека**: опрашивает доску
+Nextcloud Deck, берёт карточки из To Do, роутит по метке нужному агенту,
+выполняет через оркестратор, пишет результат комментарием и двигает в Done.
+Claim переносом в In Progress защищает от повторной обработки.
+
+- Доска (`DECK_BOARD`, дефолт «Задачи AI Combine»), стеки `To Do` / `In Progress`
+  / `Done`.
+- Метка → агент: `DECK_LABEL_AGENT_MAP="sec:koschei,code:levsha,ask:kolobok"`,
+  без метки → `DECK_DEFAULT_AGENT` (kolobok).
+- Опрос каждые `DECK_POLL_INTERVAL_MIN` (в профиле `app` дефолт 2 мин).
+
+Нужны `NEXTCLOUD_URL` / `NEXTCLOUD_USER` / `NEXTCLOUD_APP_PASSWORD` (app password
+из Настройки → Безопасность — тот же, что для RAG-индексатора).
+
+```bash
+docker compose --profile app up -d            # deck-worker крутится циклом
+# разовый прогон:
+docker compose run --rm -e DECK_POLL_INTERVAL_MIN=0 deck-worker
+```
+
 ## Этап 6: Sandbox (изолированное исполнение)
 
 Кощей и Левша запускают команды в одноразовом Docker-контейнере и сами разбирают

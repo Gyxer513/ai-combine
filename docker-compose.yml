@@ -132,3 +132,19 @@ services:
       - litellm
     profiles: ["app", "indexer"]
     restart: unless-stopped
+
+  # --- Deck-worker (автономия) ---
+  # Тянет задачи из Nextcloud Deck и выполняет агентами через оркестратор.
+  # В профиле app опрашивает доску каждые DECK_POLL_INTERVAL_MIN (дефолт 2 мин).
+  # Без depends_on на orchestrator (ходит по HTTP с ретраем на каждом тике),
+  # чтобы `--profile deck` поднимался отдельно.
+  deck-worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    env_file: .env
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+      - DECK_POLL_INTERVAL_MIN=${DECK_POLL_INTERVAL_MIN:-2}
+    profiles: ["app", "deck"]
+    restart: unless-stopped
