@@ -25,6 +25,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from ..config import settings
+from ..persistence import shared_db
 from ..rag.embedder import EmbeddingClient
 from ..rag.store import VectorStore
 from ..tools.guard import UNTRUSTED_PREAMBLE
@@ -101,8 +102,8 @@ class AgentDeps:
 
 @lru_cache(maxsize=1)
 def shared_store() -> ConversationStore:
-    """Единый на процесс стор истории/заметок (Этап 2 — in-memory)."""
-    return ConversationStore()
+    """Единый на процесс стор истории/заметок (SQLite, переживает рестарт)."""
+    return ConversationStore(shared_db())
 
 
 @lru_cache(maxsize=1)

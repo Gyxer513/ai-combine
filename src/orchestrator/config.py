@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     litellm_base_url: str = Field(default="http://litellm:4000/v1")
     litellm_master_key: str = Field(default="sk-litellm-change-me")
 
+    # --- Персистентность (SQLite) ---
+    # Файл переживает рестарт: история диалогов, заметки, метрики. ":memory:" в тестах.
+    db_path: str = Field(default="data/ai_combine.db")
+
     # --- Векторное хранилище / embeddings (через API, без локального TEI) ---
     qdrant_url: str = Field(default="http://qdrant:6333")
     embed_model: str = Field(default="embed")  # имя модели в LiteLLM (text-embedding-v4)

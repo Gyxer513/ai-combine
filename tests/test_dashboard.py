@@ -7,11 +7,16 @@ from fastapi.testclient import TestClient
 from src.orchestrator.api import dashboard
 from src.orchestrator.main import app
 from src.orchestrator.metrics import Metrics
+from src.orchestrator.persistence import Database
 from src.orchestrator.tools.memory import ConversationStore
 
 
+def _mem_db() -> Database:
+    return Database(":memory:")
+
+
 def test_metrics_record_accumulates():
-    m = Metrics()
+    m = Metrics(_mem_db())
     m.record("kolobok", 100, 50)
     m.record("kolobok", 10, 5)
     a = m.for_agent("kolobok")
@@ -23,12 +28,12 @@ def test_metrics_record_accumulates():
 
 
 def test_metrics_unknown_agent_zero():
-    a = Metrics().for_agent("нет")
+    a = Metrics(_mem_db()).for_agent("нет")
     assert a.requests == 0 and a.input_tokens == 0
 
 
 def test_store_stats():
-    store = ConversationStore()
+    store = ConversationStore(_mem_db())
     from pydantic_ai.messages import ModelRequest, UserPromptPart
 
     msg = ModelRequest(parts=[UserPromptPart(content="hi")])
