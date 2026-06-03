@@ -28,6 +28,7 @@ from ..config import settings
 from ..persistence import shared_db
 from ..rag.embedder import EmbeddingClient
 from ..rag.store import VectorStore
+from ..tools.github import GitHubClient
 from ..tools.guard import UNTRUSTED_PREAMBLE
 from ..tools.memory import ConversationStore
 from ..tools.shell import BrokerClient
@@ -97,6 +98,7 @@ class AgentDeps:
     embedder: EmbeddingClient | None = None
     vstore: VectorStore | None = None
     broker: BrokerClient | None = None  # клиент sandbox-broker (shell-инструменты)
+    github: GitHubClient | None = None  # клиент GitHub (репозитории, Левша)
     extra: dict[str, str] = field(default_factory=dict)
 
 

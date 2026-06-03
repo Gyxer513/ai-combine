@@ -13,6 +13,7 @@ from __future__ import annotations
 from pydantic_ai import Agent
 
 from ..tools.common import register_common_tools
+from ..tools.github import register_github_tools
 from ..tools.guard import CODER_ALLOWED
 from ..tools.rag import register_rag_tool
 from ..tools.shell import register_shell_tool
@@ -49,3 +50,4 @@ register_shell_tool(
     what="Запуск кода/тестов/линтеров",
     network_note="БЕЗ сети",
 )
+register_github_tools(agent)  # репозитории GitHub: чтение, коммит в ветку, PR

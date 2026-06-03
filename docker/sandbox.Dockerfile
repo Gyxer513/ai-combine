@@ -13,6 +13,11 @@ RUN apt-get update \
         nmap dnsutils openssl curl netcat-openbsd iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
+# Python-стек для отчётов/презентаций (Левша тестирует офлайн): данные — pandas,
+# презентация — python-pptx, БД-логика — против sqlite (stdlib). Ставится на этапе
+# сборки образа; в рантайме sandbox сети не имеет.
+RUN pip install --no-cache-dir pandas python-pptx openpyxl
+
 # Непривилегированный пользователь
 RUN useradd -m -u 10001 sandbox
 USER sandbox

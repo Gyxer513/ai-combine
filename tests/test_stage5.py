@@ -45,8 +45,10 @@ async def test_whitelist_empty_bootstrap_allows():
 
 
 def test_agent_bot_tokens_mapping():
-    # общий токен -> Колобок; отдельные -> свои агенты; пустые не попадают
+    # общий токен -> Колобок; отдельные -> свои агенты; пустые не попадают.
+    # _env_file=None: не подтягивать реальный .env разработчика.
     s = Settings(
+        _env_file=None,
         telegram_bot_token="A",
         telegram_bot_token_koschei="B",
         telegram_bot_token_levsha="",
@@ -55,7 +57,9 @@ def test_agent_bot_tokens_mapping():
 
 
 def test_agent_bot_token_kolobok_overrides_common():
-    s = Settings(telegram_bot_token="common", telegram_bot_token_kolobok="explicit")
+    s = Settings(
+        _env_file=None, telegram_bot_token="common", telegram_bot_token_kolobok="explicit"
+    )
     assert s.agent_bot_tokens["kolobok"] == "explicit"
 
 
