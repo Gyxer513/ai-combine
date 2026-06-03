@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     embed_model: str = Field(default="embed")  # имя модели в LiteLLM (text-embedding-v4)
     embed_dim: int = Field(default=1024)
 
+    # --- История диалога ---
+    # Токен-бюджет истории перед запросом к модели (instructions считаются отдельно).
+    # Сверх него ранние сообщения сворачиваются (см. agents/history.py).
+    history_max_tokens: int = Field(default=12000)
+
     # --- RAG ---
     rag_top_k: int = Field(default=5)
     rag_chunk_tokens: int = Field(default=512)

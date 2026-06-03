@@ -17,7 +17,13 @@ from ..tools.common import register_common_tools
 from ..tools.guard import SECOPS_ALLOWED
 from ..tools.rag import register_rag_tool
 from ..tools.shell import register_shell_tool
-from .base import AgentDeps, DataSensitivity, build_model, load_prompt
+from .base import (
+    AgentDeps,
+    DataSensitivity,
+    build_model,
+    history_capabilities,
+    load_prompt,
+)
 
 NAME = "koschei"
 TITLE = "🦴 Кощей"
@@ -32,6 +38,7 @@ agent = Agent(
     deps_type=AgentDeps,
     instructions=load_prompt(NAME),  # см. пояснение в kolobok.py
     name=NAME,
+    capabilities=history_capabilities(),  # ужимание истории по токен-бюджету
 )
 register_common_tools(agent)
 register_rag_tool(agent, namespace="security")

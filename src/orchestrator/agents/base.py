@@ -18,6 +18,7 @@ from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic_ai.capabilities import ProcessHistory
 from pydantic_ai.models import Model
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -30,6 +31,7 @@ from ..tools.guard import UNTRUSTED_PREAMBLE
 from ..tools.memory import ConversationStore
 from ..tools.shell import BrokerClient
 from ..tools.web_search import WebSearchClient
+from .history import compact_history
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
@@ -40,6 +42,11 @@ class DataSensitivity(StrEnum):
     PUBLIC = "public"  # любые free-модели
     INTERNAL = "internal"  # только open weights / платные
     SECRET = "secret"  # только платные / enterprise (Кощей)
+
+
+def history_capabilities() -> list[ProcessHistory]:
+    """Capabilities ужимания истории — единые для всех агентов (см. history.py)."""
+    return [ProcessHistory(compact_history)]
 
 
 def load_prompt(name: str) -> str:

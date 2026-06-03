@@ -14,7 +14,13 @@ from pydantic_ai import Agent
 
 from ..tools.common import register_common_tools
 from ..tools.rag import register_rag_tool
-from .base import AgentDeps, DataSensitivity, build_model, load_prompt
+from .base import (
+    AgentDeps,
+    DataSensitivity,
+    build_model,
+    history_capabilities,
+    load_prompt,
+)
 
 NAME = "kolobok"
 TITLE = "🍞 Колобок"
@@ -31,6 +37,7 @@ agent = Agent(
     # persona терялась на втором+ ходу и в OpenWebUI.
     instructions=load_prompt(NAME),
     name=NAME,
+    capabilities=history_capabilities(),  # ужимание истории по токен-бюджету
 )
 register_common_tools(agent)
 register_rag_tool(agent, namespace="personal")

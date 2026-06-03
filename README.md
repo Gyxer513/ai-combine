@@ -187,6 +187,16 @@ agent → orchestrator → (HTTP) → sandbox-broker → (docker.sock) → harde
 docker build -t ai-combine/sandbox:latest -f docker/sandbox.Dockerfile .  # образ sandbox, один раз
 ```
 
+## Ужимание истории диалога
+
+Перед каждым запросом к модели история ужимается до токен-бюджета
+(`HISTORY_MAX_TOKENS`, дефолт 12000) — `ProcessHistory`-capability на всех агентах
+([agents/history.py](src/orchestrator/agents/history.py)). Работает на обоих путях
+(Telegram `/chat` и OpenWebUI `/v1`): держим свежий хвост, ранние сообщения
+сворачиваем с пометкой, не разрывая tool-call пары. Системный промпт
+(`instructions=`) идёт отдельно и не трогается. LLM-суммаризация старого хвоста —
+позже, вместе с персистом состояния по `conversation_id`.
+
 ## Локальная разработка
 
 ```bash
