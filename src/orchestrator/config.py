@@ -84,6 +84,17 @@ class Settings(BaseSettings):
     nextcloud_user: str = Field(default="")
     nextcloud_app_password: str = Field(default="")
 
+    # --- Deck-worker (автономия): задачи из Nextcloud Deck ---
+    deck_board: str = Field(default="Задачи AI Combine")
+    deck_todo_stack: str = Field(default="To Do")
+    deck_doing_stack: str = Field(default="In Progress")
+    deck_done_stack: str = Field(default="Done")
+    # Метка карточки -> агент (CSV "label:agent"). Без метки -> deck_default_agent.
+    deck_label_agent_map: str = Field(default="sec:koschei,code:levsha,ask:kolobok")
+    deck_default_agent: str = Field(default="kolobok")
+    # Интервал опроса доски в минутах: >0 — цикл, 0 — один проход.
+    deck_poll_interval_min: int = Field(default=0)
+
     # --- Gitea (Этап 6) ---
     gitea_url: str = Field(default="")
     gitea_token: str = Field(default="")
@@ -114,6 +125,16 @@ class Settings(BaseSettings):
             path, _, ns = pair.rpartition(":")
             if path.strip() and ns.strip():
                 out.append((path.strip(), ns.strip()))
+        return out
+
+    @property
+    def deck_label_agents(self) -> dict[str, str]:
+        """'sec:koschei,code:levsha' -> {'sec': 'koschei', ...} (метка в нижнем регистре)."""
+        out: dict[str, str] = {}
+        for pair in self.deck_label_agent_map.split(","):
+            label, _, agent = pair.partition(":")
+            if label.strip() and agent.strip():
+                out[label.strip().lower()] = agent.strip()
         return out
 
     @property
