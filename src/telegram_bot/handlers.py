@@ -1,8 +1,9 @@
-"""Хендлеры Telegram-бота.
+"""Хендлеры Telegram-бота (один бот на агента).
 
-Команды переключают активного агента в чате; обычный текст уходит выбранному
-агенту через оркестратор. История диалога связывается по conversation_id
-`tg:<chat_id>:<session>`; /reset инкрементит session и начинает диалог заново.
+Каждый бот жёстко привязан к своему агенту по токену — переключения нет, бот
+*и есть* агент. Какой агент, определяется по `message.bot.token` через
+`agent_by_token` (прокидывается из polling-данных). История диалога —
+`tg:<agent>:<chat_id>:<session>`; /reset инкрементит session.
 """
 
 from __future__ import annotations
@@ -22,30 +23,28 @@ log = structlog.get_logger()
 router = Router()
 
 TG_LIMIT = 4096  # лимит длины сообщения Telegram
-
-# Команда/алиас -> агент.
-AGENT_BY_COMMAND = {
-    "kolobok": "kolobok",
-    "ask": "kolobok",
-    "koschei": "koschei",
-    "sec": "koschei",
-    "levsha": "levsha",
-    "code": "levsha",
-}
-TITLES = {"kolobok": "🍞 Колобок", "koschei": "🦴 Кощей", "levsha": "🔨 Левша"}
 DEFAULT_AGENT = "kolobok"
 
-# Состояние по чату: активный агент + номер сессии (для /reset). In-memory.
-_state: dict[int, dict] = {}
+TITLES = {"kolobok": "🍞 Колобок", "koschei": "🦴 Кощей", "levsha": "🔨 Левша"}
+BLURB = {
+    "kolobok": "общий помощник: ресёрч, поиск, бытовые вопросы",
+    "koschei": "информационная безопасность: скан и хардненинг твоей инфры",
+    "levsha": "код и инженерия: пишу и ревьюю код, гоняю тесты",
+}
+
+# Номер сессии по (агент, чат) — для /reset. In-memory (история — в оркестраторе).
+_sessions: dict[tuple[str, int], int] = {}
 
 
-def _chat_state(chat_id: int) -> dict:
-    return _state.setdefault(chat_id, {"agent": DEFAULT_AGENT, "session": 0})
+def _agent_of(message: Message, agent_by_token: dict[str, str]) -> str:
+    """Агент, к которому привязан бот, получивший сообщение."""
+    token = getattr(message.bot, "token", "")
+    return agent_by_token.get(token, DEFAULT_AGENT)
 
 
-def _conversation_id(chat_id: int) -> str:
-    st = _chat_state(chat_id)
-    return f"tg:{chat_id}:{st['session']}"
+def _conversation_id(agent: str, chat_id: int) -> str:
+    session = _sessions.get((agent, chat_id), 0)
+    return f"tg:{agent}:{chat_id}:{session}"
 
 
 async def _reply_chunked(message: Message, text: str) -> None:
@@ -55,45 +54,34 @@ async def _reply_chunked(message: Message, text: str) -> None:
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message) -> None:
+async def cmd_start(message: Message, agent_by_token: dict[str, str]) -> None:
+    agent = _agent_of(message, agent_by_token)
     await message.answer(
-        "Привет! Я — мост к трём агентам AI Combine.\n\n"
-        "🍞 /kolobok (/ask) — общий помощник и ресёрч\n"
-        "🦴 /koschei (/sec) — информационная безопасность\n"
-        "🔨 /levsha (/code) — код и инженерия\n\n"
-        "Выбери агента командой и просто пиши сообщения.\n"
-        "/who — кто активен · /reset — начать диалог заново · /help — помощь"
+        f"Привет! Я {TITLES[agent]} — {BLURB[agent]}.\n\n"
+        "Просто пиши вопрос. /reset — начать диалог заново, /who — кто я."
     )
 
 
 @router.message(Command("help"))
-async def cmd_help(message: Message) -> None:
+async def cmd_help(message: Message, agent_by_token: dict[str, str]) -> None:
+    agent = _agent_of(message, agent_by_token)
     await message.answer(
-        "Команды:\n"
-        "/kolobok /koschei /levsha — переключить агента (алиасы /ask /sec /code)\n"
-        "/who — показать активного агента\n"
-        "/reset — забыть историю и начать заново\n\n"
-        "Каждый агент ищет по своей базе знаний и умеет web_search."
+        f"Этот бот — {TITLES[agent]} ({BLURB[agent]}).\n"
+        "Пиши вопрос обычным сообщением.\n"
+        "/reset — забыть историю и начать заново · /who — кто я."
     )
 
 
-@router.message(Command(*AGENT_BY_COMMAND.keys()))
-async def cmd_switch_agent(message: Message) -> None:
-    command = (message.text or "")[1:].split("@")[0].split()[0].lower()
-    agent = AGENT_BY_COMMAND.get(command, DEFAULT_AGENT)
-    _chat_state(message.chat.id)["agent"] = agent
-    await message.answer(f"Активен {TITLES[agent]}. Пиши вопрос.")
-
-
 @router.message(Command("who"))
-async def cmd_who(message: Message) -> None:
-    agent = _chat_state(message.chat.id)["agent"]
-    await message.answer(f"Сейчас отвечает {TITLES[agent]}.")
+async def cmd_who(message: Message, agent_by_token: dict[str, str]) -> None:
+    agent = _agent_of(message, agent_by_token)
+    await message.answer(f"Я {TITLES[agent]} — {BLURB[agent]}.")
 
 
 @router.message(Command("reset"))
-async def cmd_reset(message: Message) -> None:
-    _chat_state(message.chat.id)["session"] += 1
+async def cmd_reset(message: Message, agent_by_token: dict[str, str]) -> None:
+    agent = _agent_of(message, agent_by_token)
+    _sessions[(agent, message.chat.id)] = _sessions.get((agent, message.chat.id), 0) + 1
     await message.answer("История забыта, начинаем заново.")
 
 
@@ -106,19 +94,24 @@ async def _keep_typing(message: Message, chat_id: int) -> None:
 
 
 @router.message()
-async def on_text(message: Message, orchestrator: OrchestratorClient) -> None:
+async def on_text(
+    message: Message,
+    orchestrator: OrchestratorClient,
+    agent_by_token: dict[str, str],
+) -> None:
     text = (message.text or "").strip()
     if not text:
         return
     chat_id = message.chat.id
-    agent = _chat_state(chat_id)["agent"]
+    agent = _agent_of(message, agent_by_token)
+    log.info("telegram.msg", chat=chat_id, agent=agent, text_len=len(text))
     typing = asyncio.create_task(_keep_typing(message, chat_id))
     try:
         reply = await orchestrator.chat(
-            message=text, agent=agent, conversation_id=_conversation_id(chat_id)
+            message=text, agent=agent, conversation_id=_conversation_id(agent, chat_id)
         )
     except Exception as exc:  # noqa: BLE001
-        log.warning("telegram.chat_failed", error=str(exc))
+        log.warning("telegram.chat_failed", agent=agent, error=str(exc))
         await message.answer("Не получилось получить ответ — оркестратор недоступен.")
         return
     finally:

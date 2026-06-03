@@ -1,9 +1,10 @@
-"""Тесты Этапа 5 (Telegram): whitelist и маппинг команд."""
+"""Тесты Этапа 5 (Telegram): whitelist, маппинг ботов на агентов, conversation_id."""
 
 from __future__ import annotations
 
 from aiogram.types import User
 
+from src.orchestrator.config import Settings
 from src.telegram_bot import handlers
 from src.telegram_bot.middleware import WhitelistMiddleware
 
@@ -43,16 +44,31 @@ async def test_whitelist_empty_bootstrap_allows():
     assert await _run_mw(set(), 999, allow_bootstrap=True) is True
 
 
-def test_command_aliases_map_to_agents():
-    assert handlers.AGENT_BY_COMMAND["sec"] == "koschei"
-    assert handlers.AGENT_BY_COMMAND["code"] == "levsha"
-    assert handlers.AGENT_BY_COMMAND["ask"] == "kolobok"
+def test_agent_bot_tokens_mapping():
+    # общий токен -> Колобок; отдельные -> свои агенты; пустые не попадают
+    s = Settings(
+        telegram_bot_token="A",
+        telegram_bot_token_koschei="B",
+        telegram_bot_token_levsha="",
+    )
+    assert s.agent_bot_tokens == {"kolobok": "A", "koschei": "B"}
+
+
+def test_agent_bot_token_kolobok_overrides_common():
+    s = Settings(telegram_bot_token="common", telegram_bot_token_kolobok="explicit")
+    assert s.agent_bot_tokens["kolobok"] == "explicit"
 
 
 def test_conversation_id_changes_after_reset():
-    handlers._state.clear()
-    cid1 = handlers._conversation_id(42)
-    handlers._chat_state(42)["session"] += 1  # эмулируем /reset
-    cid2 = handlers._conversation_id(42)
+    handlers._sessions.clear()
+    cid1 = handlers._conversation_id("koschei", 42)
+    handlers._sessions[("koschei", 42)] = 1  # эмулируем /reset
+    cid2 = handlers._conversation_id("koschei", 42)
     assert cid1 != cid2
-    assert cid1.startswith("tg:42:")
+    assert cid1.startswith("tg:koschei:42:")
+
+
+def test_conversation_id_isolated_per_agent():
+    handlers._sessions.clear()
+    # один и тот же chat_id у разных ботов -> разные диалоги
+    assert handlers._conversation_id("kolobok", 7) != handlers._conversation_id("levsha", 7)
