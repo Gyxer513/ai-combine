@@ -26,6 +26,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from ..config import settings
 from ..rag.embedder import EmbeddingClient
 from ..rag.store import VectorStore
+from ..tools.guard import UNTRUSTED_PREAMBLE
 from ..tools.memory import ConversationStore
 from ..tools.web_search import WebSearchClient
 
@@ -41,9 +42,15 @@ class DataSensitivity(StrEnum):
 
 
 def load_prompt(name: str) -> str:
-    """Прочитать системный промпт `prompts/<name>.md`."""
+    """Прочитать системный промпт `prompts/<name>.md` + добавить security-преамбулу.
+
+    Преамбула (защита от prompt injection) дописывается ко всем агентам
+    централизованно — чтобы Колобок/Кощей/Левша/будущий ДЕД одинаково не доверяли
+    инструкциям, спрятанным в результатах инструментов.
+    """
     path = PROMPTS_DIR / f"{name}.md"
-    return path.read_text(encoding="utf-8").strip()
+    persona = path.read_text(encoding="utf-8").strip()
+    return f"{persona}\n\n{UNTRUSTED_PREAMBLE}"
 
 
 def build_model(model_names: list[str]) -> Model:

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pydantic_ai import Agent, RunContext
 
+from .guard import wrap_untrusted
 from .web_search import WebSearchClient  # noqa: F401  (для подсказок типов)
 
 
@@ -27,7 +28,9 @@ def register_common_tools(agent: Agent) -> None:
         results = await ctx.deps.web.search(query, max_results=max_results)
         if not results:
             return "Ничего не нашлось."
-        return "\n\n".join(r.as_line() for r in results)
+        # Выдача из интернета — недоверенная: оборачиваем, чтобы агент не принял
+        # спрятанные в сниппетах инструкции за команды.
+        return wrap_untrusted("web_search", "\n\n".join(r.as_line() for r in results))
 
     @agent.tool
     async def save_note(ctx: RunContext, key: str, value: str) -> str:

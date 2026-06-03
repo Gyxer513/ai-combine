@@ -30,14 +30,24 @@ async def run() -> None:
 
     bot = Bot(token=settings.telegram_bot_token)
     dp = Dispatcher()
-    dp.message.middleware(WhitelistMiddleware(settings.allowed_user_ids))
+    dp.message.middleware(
+        WhitelistMiddleware(
+            settings.allowed_user_ids,
+            allow_bootstrap=settings.telegram_allow_bootstrap,
+        )
+    )
     dp.include_router(router)
+
+    if not settings.allowed_user_ids:
+        mode = "ALL (bootstrap)" if settings.telegram_allow_bootstrap else "NONE (fail-closed)"
+    else:
+        mode = str(len(settings.allowed_user_ids))
 
     async with httpx.AsyncClient() as http:
         orchestrator = OrchestratorClient(http, settings.orchestrator_url)
         log.info(
             "telegram.start",
-            allowed=len(settings.allowed_user_ids) or "ALL (bootstrap)",
+            allowed=mode,
             orchestrator=settings.orchestrator_url,
         )
         await dp.start_polling(bot, orchestrator=orchestrator)

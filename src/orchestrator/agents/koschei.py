@@ -14,6 +14,7 @@ from __future__ import annotations
 from pydantic_ai import Agent
 
 from ..tools.common import register_common_tools
+from ..tools.guard import SECOPS_ALLOWED
 from ..tools.rag import register_rag_tool
 from ..tools.shell import register_shell_tool
 from .base import AgentDeps, DataSensitivity, build_model, load_prompt
@@ -39,4 +40,5 @@ register_shell_tool(
     network=True,  # скан/разведка своей инфры требует сети
     name="run_security_command",
     what="Запуск security-команды (nmap, openssl, dig, curl, nc)",
+    allowed=SECOPS_ALLOWED,  # без интерпретаторов: сеть + произвольный exec = эксфил
 )

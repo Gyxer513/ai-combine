@@ -18,6 +18,7 @@ import structlog
 from pydantic_ai import Agent, RunContext
 
 from ..config import settings
+from .guard import CommandGuard, wrap_untrusted
 
 log = structlog.get_logger()
 
@@ -94,19 +95,44 @@ class SandboxRunner:
         return f"exit={code}\n{out}".strip()
 
 
-def register_shell_tool(agent: Agent, *, network: bool, name: str, what: str) -> None:
-    """Навесить sandbox-инструмент с заданным именем и сетевой политикой."""
+def register_shell_tool(
+    agent: Agent,
+    *,
+    network: bool,
+    name: str,
+    what: str,
+    allowed: frozenset[str],
+) -> None:
+    """Навесить sandbox-инструмент с заданным именем, сетевой политикой и allowlist.
+
+    `allowed` — множество разрешённых бинарей (см. guard.SECOPS_ALLOWED /
+    CODER_ALLOWED). Команда проверяется ДО запуска: неразрешённый бинарь,
+    подстановка или цепочка на чужой бинарь отклоняются, не доходя до sandbox.
+    """
     runner = SandboxRunner(network=network)
+    guard = CommandGuard(allowed)
     net_note = "есть сеть" if network else "БЕЗ сети"
 
     async def shell_tool(ctx: RunContext, command: str) -> str:
+        ok, reason = guard.check(command)
+        if not ok:
+            log.warning("sandbox.blocked", tool=name, reason=reason, command=command)
+            return (
+                f"[команда отклонена политикой безопасности: {reason}]\n"
+                f"Разрешены только: {', '.join(sorted(allowed))}. "
+                "Переформулируй под один разрешённый бинарь без подстановок."
+            )
         log.info("sandbox.run", tool=name, network=network)
-        return await runner.run(command)
+        output = await runner.run(command)
+        # Вывод команды — недоверенный (может содержать инъекцию из ответа цели).
+        return wrap_untrusted(f"{name}_output", output)
 
     shell_tool.__name__ = name
     shell_tool.__doc__ = (
         f"{what} в изолированном sandbox ({net_note}). "
-        "Принимает одну shell-команду, возвращает exit-код и вывод.\n\n"
+        "Принимает одну shell-команду, возвращает exit-код и вывод.\n"
+        f"Разрешены только бинари: {', '.join(sorted(allowed))}. "
+        "Без подстановок ($(), ``), без цепочек на неразрешённый бинарь.\n\n"
         "Args:\n    command: Команда для bash -lc."
     )
     agent.tool(shell_tool)

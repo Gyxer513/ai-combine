@@ -12,9 +12,9 @@ def _user(uid: int) -> User:
     return User(id=uid, is_bot=False, first_name="t")
 
 
-async def _run_mw(allowed: set[int], uid: int) -> bool:
+async def _run_mw(allowed: set[int], uid: int, *, allow_bootstrap: bool = False) -> bool:
     """True, если хендлер был вызван (доступ разрешён)."""
-    mw = WhitelistMiddleware(allowed)
+    mw = WhitelistMiddleware(allowed, allow_bootstrap=allow_bootstrap)
     called = {"v": False}
 
     async def handler(event, data):
@@ -33,8 +33,14 @@ async def test_whitelist_blocks_unlisted():
     assert await _run_mw({123}, 999) is False
 
 
-async def test_whitelist_empty_is_bootstrap_allow_all():
-    assert await _run_mw(set(), 999) is True
+async def test_whitelist_empty_is_fail_closed_by_default():
+    # пустой whitelist без bootstrap -> никого не пускаем
+    assert await _run_mw(set(), 999) is False
+
+
+async def test_whitelist_empty_bootstrap_allows():
+    # явный bootstrap-режим (дев) -> пускаем
+    assert await _run_mw(set(), 999, allow_bootstrap=True) is True
 
 
 def test_command_aliases_map_to_agents():
