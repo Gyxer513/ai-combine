@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # --- Telegram (Этап 5) ---
     telegram_bot_token: str = Field(default="")
     telegram_allowed_users: str = Field(default="")
+    # Fail-closed: при пустом whitelist по умолчанию НИКОГО не пускаем (id отказанных
+    # пишутся в лог — узнать свой и добавить). Открытый bootstrap-режим (пускать
+    # всех при пустом списке) — только явным TELEGRAM_ALLOW_BOOTSTRAP=true для дев.
+    telegram_allow_bootstrap: bool = Field(default=False)
     # Куда бот ходит за ответами агентов (в docker — имя сервиса).
     orchestrator_url: str = Field(default="http://orchestrator:8000")
     # Сколько бот ждёт ответ агента (секунд). Кощей с серией сканов может работать
@@ -91,7 +95,8 @@ class Settings(BaseSettings):
         """Whitelist Telegram user_id из строки '123,456'.
 
         Нечисловые значения (например @username) игнорируются — нужен числовой
-        id (см. @userinfobot). Если в итоге пусто — bootstrap-режим (пускает всех).
+        id (см. @userinfobot). Пустой результат -> fail-closed (никого), если не
+        включён telegram_allow_bootstrap.
         """
         ids: set[int] = set()
         for token in self.telegram_allowed_users.split(","):
