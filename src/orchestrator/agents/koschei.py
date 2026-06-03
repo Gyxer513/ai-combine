@@ -37,8 +37,9 @@ register_common_tools(agent)
 register_rag_tool(agent, namespace="security")
 register_shell_tool(
     agent,
-    network=True,  # скан/разведка своей инфры требует сети
+    profile="secops",  # у брокера: сеть ВКЛ для скана своей инфры
+    allowed=SECOPS_ALLOWED,  # без интерпретаторов: сеть + произвольный exec = эксфил
     name="run_security_command",
     what="Запуск security-команды (nmap, openssl, dig, curl, nc)",
-    allowed=SECOPS_ALLOWED,  # без интерпретаторов: сеть + произвольный exec = эксфил
+    network_note="есть сеть",
 )

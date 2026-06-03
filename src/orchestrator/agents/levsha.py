@@ -36,8 +36,9 @@ register_common_tools(agent)
 register_rag_tool(agent, namespace="coding")
 register_shell_tool(
     agent,
-    network=False,  # прогон кода/тестов — без сети
+    profile="coder",  # у брокера: сеть ВЫКЛ для прогона кода
+    allowed=CODER_ALLOWED,  # интерпретаторы ок: sandbox без сети, эксфил невозможен
     name="run_shell",
     what="Запуск кода/тестов/линтеров",
-    allowed=CODER_ALLOWED,  # интерпретаторы ок: sandbox без сети, эксфил невозможен
+    network_note="БЕЗ сети",
 )

@@ -167,12 +167,24 @@ docker compose --profile telegram up -d           # telegram-бот
 Hardening sandbox'а: `cap_drop ALL`, `no-new-privileges`, read-only rootfs +
 tmpfs `/tmp`, лимиты mem/cpu/pids, non-root (uid 10001), таймаут, `--rm`.
 
-> Оркестратор порождает sandbox'ы через `docker.sock` (смонтирован в compose).
-> Это привилегия (RCE оркестратора = хост) — приемлемо для личного сервера, сами
-> sandbox'ы максимально зажаты и не получают ни сокет, ни capabilities.
+Каждую команду перед запуском проверяет allowlist бинарей (без `$()`/backtick и
+цепочек на чужой бинарь) — защита от prompt injection.
+
+### Архитектура исполнения (sandbox-broker)
+
+`docker.sock` смонтирован **только** в отдельный сервис `sandbox-broker` — у
+оркестратора прямого доступа к Docker нет. Оркестратор шлёт брокеру по HTTP
+минимальный запрос `{profile, command}`; образ, hardening, сеть и allowlist
+захардкожены в брокере и снаружи не управляются. Так RCE в оркестраторе (через
+инъекцию) не даёт ни произвольного docker, ни хоста — лишь allowlist-команду в
+зажатом sandbox.
+
+```
+agent → orchestrator → (HTTP) → sandbox-broker → (docker.sock) → hardened sandbox
+```
 
 ```bash
-docker build -t ai-combine/sandbox:latest -f docker/sandbox.Dockerfile .  # один раз
+docker build -t ai-combine/sandbox:latest -f docker/sandbox.Dockerfile .  # образ sandbox, один раз
 ```
 
 ## Локальная разработка

@@ -71,14 +71,28 @@ services:
       - LITELLM_BASE_URL=http://litellm:4000/v1
       - QDRANT_URL=http://qdrant:6333
       - SEARXNG_URL=http://searxng:8080
-    volumes:
-      # Этап 6: оркестратор порождает sandbox-контейнеры через docker.sock.
-      # Привилегия (orchestrator RCE = хост) — sandbox'ы зато зажаты по максимуму.
-      - /var/run/docker.sock:/var/run/docker.sock
+      - BROKER_URL=http://sandbox-broker:9000
+    # docker.sock у оркестратора БОЛЬШЕ НЕТ: команды идут в sandbox-broker по HTTP.
+    # RCE в оркестраторе (инъекция) теперь не даёт прямого доступа к Docker/хосту.
     depends_on:
       - litellm
       - qdrant
       - searxng
+      - sandbox-broker
+    profiles: ["app"]
+    restart: unless-stopped
+
+  # --- Sandbox-broker (Этап 6): ЕДИНСТВЕННЫЙ с docker.sock ---
+  # Крошечная привилегированная поверхность: фиксированный API {profile, command},
+  # hardening и allowlist захардкожены внутри. Наружу порт НЕ публикуется —
+  # доступен только из docker-сети (оркестратору).
+  sandbox-broker:
+    build:
+      context: .
+      dockerfile: docker/broker.Dockerfile
+    env_file: .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     profiles: ["app"]
     restart: unless-stopped
 
