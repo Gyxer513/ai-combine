@@ -72,8 +72,12 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - SEARXNG_URL=http://searxng:8080
       - BROKER_URL=http://sandbox-broker:9000
+      - DB_PATH=/app/data/ai_combine.db
     # docker.sock у оркестратора БОЛЬШЕ НЕТ: команды идут в sandbox-broker по HTTP.
     # RCE в оркестраторе (инъекция) теперь не даёт прямого доступа к Docker/хосту.
+    volumes:
+      # SQLite-БД (история диалогов, заметки, метрики) переживает рестарт.
+      - ./data:/app/data
     depends_on:
       - litellm
       - qdrant

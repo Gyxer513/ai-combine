@@ -14,6 +14,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from src.orchestrator.agents import kolobok
 from src.orchestrator.agents.base import AgentDeps
+from src.orchestrator.persistence import Database
 from src.orchestrator.rag.embedder import EmbeddingClient
 from src.orchestrator.rag.store import Hit, point_id
 from src.orchestrator.tools.memory import ConversationStore
@@ -79,7 +80,7 @@ def _deps_with_rag(store: _StubStore) -> AgentDeps:
     return AgentDeps(
         conversation_id="t",
         web=WebSearchClient(httpx.AsyncClient()),
-        store=ConversationStore(),
+        store=ConversationStore(Database(":memory:")),
         embedder=_StubEmbedder(),
         vstore=store,
     )

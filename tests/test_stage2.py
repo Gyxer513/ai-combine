@@ -12,6 +12,7 @@ from pydantic_ai.models.test import TestModel
 from src.orchestrator.agents import kolobok
 from src.orchestrator.agents.base import shared_store
 from src.orchestrator.main import app
+from src.orchestrator.persistence import Database
 from src.orchestrator.tools.memory import ConversationStore
 from src.orchestrator.tools.web_search import WebSearchClient, _parse_instant_answer
 
@@ -85,14 +86,14 @@ async def test_web_search_all_fail_returns_empty():
 
 
 def test_store_history_trims():
-    store = ConversationStore(max_messages=2)
+    store = ConversationStore(Database(":memory:"), max_messages=2)
     msgs: list[ModelMessage] = [ModelResponse(parts=[TextPart(content=str(i))]) for i in range(5)]
     store.extend_history("c1", msgs)
     assert len(store.history("c1")) == 2
 
 
 def test_store_notes_and_clear():
-    store = ConversationStore()
+    store = ConversationStore(Database(":memory:"))
     store.save_note("c1", "city", "Vladivostok")
     assert store.get_note("c1", "city") == "Vladivostok"
     store.clear("c1")
