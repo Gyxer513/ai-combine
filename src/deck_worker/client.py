@@ -19,6 +19,7 @@ import httpx
 _API = "/index.php/apps/deck/api/v1.0"
 _OCS = "/ocs/v2.php/apps/deck/api/v1.0"
 _COMMENT_LIMIT = 1000  # лимит длины комментария Deck
+_TITLE_LIMIT = 255  # лимит длины заголовка карточки Deck
 
 
 def _unwrap(data: Any) -> Any:
@@ -60,6 +61,35 @@ class DeckClient:
     async def stacks(self, board_id: int) -> list[dict]:
         """Стеки доски с вложенными карточками (cards может быть None)."""
         return await self._get(f"{_API}/boards/{board_id}/stacks")
+
+    async def board_card_titles(self, board_id: int) -> set[str]:
+        """Все заголовки карточек доски (для антидубля)."""
+        titles: set[str] = set()
+        for stack in await self.stacks(board_id):
+            for card in stack.get("cards") or []:
+                title = (card.get("title") or "").strip()
+                if title:
+                    titles.add(title)
+        return titles
+
+    async def create_card(
+        self, board_id: int, stack_id: int, title: str, description: str = "", *, order: int = 0
+    ) -> dict:
+        """Создать карточку в стеке."""
+        resp = await self._http.post(
+            f"{self._base}{_API}/boards/{board_id}/stacks/{stack_id}/cards",
+            json={
+                "title": title[:_TITLE_LIMIT],
+                "type": "plain",
+                "order": order,
+                "description": description,
+            },
+            auth=self._auth,
+            headers=self._headers,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return _unwrap(resp.json())
 
     async def move_card(
         self, board_id: int, card_id: int, target_stack_id: int, *, order: int = 0

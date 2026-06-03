@@ -148,3 +148,21 @@ services:
       - DECK_POLL_INTERVAL_MIN=${DECK_POLL_INTERVAL_MIN:-2}
     profiles: ["app", "deck"]
     restart: unless-stopped
+
+  # --- Research-worker (Колобок: ресёрч заработка) ---
+  # Тот же образ воркера, другой entrypoint. Token-bounded: детерминированный
+  # поиск + один дешёвый LLM-вызов на прогон -> карточки на Deck-доске «Идеи».
+  # Дефолт раз в день (RESEARCH_INTERVAL_MIN=1440). Разовый прогон:
+  #   docker compose run --rm -e RESEARCH_INTERVAL_MIN=0 research-worker
+  research-worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    command: ["python", "-m", "src.research_worker.main"]
+    env_file: .env
+    environment:
+      - LITELLM_BASE_URL=http://litellm:4000/v1
+      - SEARXNG_URL=http://searxng:8080
+      - RESEARCH_INTERVAL_MIN=${RESEARCH_INTERVAL_MIN:-1440}
+    profiles: ["app", "research"]
+    restart: unless-stopped
