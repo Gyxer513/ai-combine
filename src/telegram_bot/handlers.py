@@ -7,6 +7,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+
 import structlog
 from aiogram import Router
 from aiogram.enums import ChatAction
@@ -94,6 +97,14 @@ async def cmd_reset(message: Message) -> None:
     await message.answer("История забыта, начинаем заново.")
 
 
+async def _keep_typing(message: Message, chat_id: int) -> None:
+    """Держать индикатор «печатает…» пока агент работает (он живёт ~5с)."""
+    while True:
+        with contextlib.suppress(Exception):
+            await message.bot.send_chat_action(chat_id, ChatAction.TYPING)
+        await asyncio.sleep(4)
+
+
 @router.message()
 async def on_text(message: Message, orchestrator: OrchestratorClient) -> None:
     text = (message.text or "").strip()
@@ -101,7 +112,7 @@ async def on_text(message: Message, orchestrator: OrchestratorClient) -> None:
         return
     chat_id = message.chat.id
     agent = _chat_state(chat_id)["agent"]
-    await message.bot.send_chat_action(chat_id, ChatAction.TYPING)
+    typing = asyncio.create_task(_keep_typing(message, chat_id))
     try:
         reply = await orchestrator.chat(
             message=text, agent=agent, conversation_id=_conversation_id(chat_id)
@@ -110,4 +121,8 @@ async def on_text(message: Message, orchestrator: OrchestratorClient) -> None:
         log.warning("telegram.chat_failed", error=str(exc))
         await message.answer("Не получилось получить ответ — оркестратор недоступен.")
         return
+    finally:
+        typing.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await typing
     await _reply_chunked(message, reply or "(пустой ответ)")
