@@ -123,13 +123,19 @@ LITELLM_BASE_URL=http://localhost:4000/v1 QDRANT_URL=http://localhost:6333 \
 
 Бот на aiogram 3 — мост к оркестратору (сам LLM не зовёт). Доступ по whitelist.
 
-- Команды: `/kolobok` `/koschei` `/levsha` (алиасы `/ask` `/sec` `/code`) —
-  переключают агента; `/who` — кто активен; `/reset` — забыть историю.
-- Обычный текст уходит активному агенту; история по `tg:<chat_id>:<session>`.
+**Один бот на агента** — каждый бот жёстко привязан к своему агенту, переключения
+нет (бот *и есть* агент). Один процесс поллит все заданные токены и выбирает агента
+по `message.bot.token`.
 
-В `.env`: `TELEGRAM_BOT_TOKEN` (от @BotFather), `TELEGRAM_ALLOWED_USERS`
-(user_id через запятую, узнать у @userinfobot). Пустой whitelist = пускает всех
-(bootstrap, для первого запуска) — потом обязательно заполни.
+- Команды: `/who` — кто этот бот; `/reset` — забыть историю; `/start` `/help`.
+- Обычный текст уходит агенту этого бота; история по `tg:<agent>:<chat_id>:<session>`.
+
+В `.env`:
+- `TELEGRAM_BOT_TOKEN` — общий, идёт Колобку (или явный `TELEGRAM_BOT_TOKEN_KOLOBOK`);
+- `TELEGRAM_BOT_TOKEN_KOSCHEI`, `TELEGRAM_BOT_TOKEN_LEVSHA` — отдельные боты
+  (создать в @BotFather). Поллятся только заданные — можно начать с одного.
+- `TELEGRAM_ALLOWED_USERS` — числовые user_id через запятую (узнать у @userinfobot),
+  общий для всех ботов. Пустой = fail-closed (никого; id отказанных пишутся в лог).
 
 ```bash
 docker compose --profile telegram up -d

@@ -10,6 +10,7 @@ whitelist'ом (TELEGRAM_ALLOWED_USERS).
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import httpx
 import structlog
@@ -25,10 +26,25 @@ log = structlog.get_logger()
 
 
 async def run() -> None:
-    if not settings.telegram_bot_token:
-        raise SystemExit("TELEGRAM_BOT_TOKEN не задан в .env")
+    # aiogram пишет ошибки роутинга/хендлеров через стандартный logging —
+    # без этого они уходят в никуда, и сбои выглядят как «бот молчит».
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
 
-    bot = Bot(token=settings.telegram_bot_token)
+    tokens = settings.agent_bot_tokens  # {agent: token}
+    if not tokens:
+        raise SystemExit(
+            "Не задан ни один токен бота "
+            "(TELEGRAM_BOT_TOKEN / TELEGRAM_BOT_TOKEN_KOLOBOK/KOSCHEI/LEVSHA)"
+        )
+
+    bots = []
+    agent_by_token: dict[str, str] = {}
+    for agent, token in tokens.items():
+        bots.append(Bot(token=token))
+        agent_by_token[token] = agent
+
     dp = Dispatcher()
     dp.message.middleware(
         WhitelistMiddleware(
@@ -47,10 +63,13 @@ async def run() -> None:
         orchestrator = OrchestratorClient(http, settings.orchestrator_url)
         log.info(
             "telegram.start",
+            bots=list(tokens.keys()),
             allowed=mode,
             orchestrator=settings.orchestrator_url,
         )
-        await dp.start_polling(bot, orchestrator=orchestrator)
+        await dp.start_polling(
+            *bots, orchestrator=orchestrator, agent_by_token=agent_by_token
+        )
 
 
 def main() -> None:

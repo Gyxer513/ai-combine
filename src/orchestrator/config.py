@@ -61,7 +61,13 @@ class Settings(BaseSettings):
     searxng_url: str = Field(default="http://searxng:8080")
 
     # --- Telegram (Этап 5) ---
+    # Один бот на агента: каждый бот жёстко привязан к агенту по своему токену.
+    # telegram_bot_token (общий) → Колобок по умолчанию (обратная совместимость);
+    # отдельные боты Кощея/Левши создаются в @BotFather, токены — ниже.
     telegram_bot_token: str = Field(default="")
+    telegram_bot_token_kolobok: str = Field(default="")
+    telegram_bot_token_koschei: str = Field(default="")
+    telegram_bot_token_levsha: str = Field(default="")
     telegram_allowed_users: str = Field(default="")
     # Fail-closed: при пустом whitelist по умолчанию НИКОГО не пускаем (id отказанных
     # пишутся в лог — узнать свой и добавить). Открытый bootstrap-режим (пускать
@@ -100,6 +106,23 @@ class Settings(BaseSettings):
             path, _, ns = pair.rpartition(":")
             if path.strip() and ns.strip():
                 out.append((path.strip(), ns.strip()))
+        return out
+
+    @property
+    def agent_bot_tokens(self) -> dict[str, str]:
+        """{agent_name: bot_token} для агентов с заданным токеном.
+
+        Колобок берёт telegram_bot_token_kolobok или общий telegram_bot_token.
+        Поллятся только агенты с непустым токеном — можно поднять и одного бота.
+        """
+        out: dict[str, str] = {}
+        kolobok = self.telegram_bot_token_kolobok or self.telegram_bot_token
+        if kolobok:
+            out["kolobok"] = kolobok
+        if self.telegram_bot_token_koschei:
+            out["koschei"] = self.telegram_bot_token_koschei
+        if self.telegram_bot_token_levsha:
+            out["levsha"] = self.telegram_bot_token_levsha
         return out
 
     @property
