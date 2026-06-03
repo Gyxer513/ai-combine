@@ -95,6 +95,24 @@ class Settings(BaseSettings):
     # Интервал опроса доски в минутах: >0 — цикл, 0 — один проход.
     deck_poll_interval_min: int = Field(default=0)
 
+    # --- Research-worker (Колобок: регулярный ресёрч заработка) ---
+    # Token-bounded: детерминированный поиск + ОДИН дешёвый LLM-вызов на прогон.
+    research_board: str = Field(default="Идеи")
+    research_stack: str = Field(default="Новые")  # стек для новых карточек-идей
+    research_model: str = Field(default="qwen-flash")  # дёшево + приватно (Alibaba)
+    research_ideas_per_run: int = Field(default=2)
+    research_searches_per_run: int = Field(default=3)
+    research_max_tokens: int = Field(default=900)  # потолок вывода LLM
+    research_interval_min: int = Field(default=0)  # 0 — один проход; 1440 — раз в день
+    # Темы-углы для ротации (по дате). CSV.
+    research_themes: str = Field(
+        default=(
+            "автоматизация бизнес-процессов,no-code/low-code SaaS,"
+            "AI-сервисы и ассистенты,парсинг и арбитраж данных,"
+            "контент и инфопродукты,b2b-микросервисы,Telegram-боты и автоматизация"
+        )
+    )
+
     # --- Gitea (Этап 6) ---
     gitea_url: str = Field(default="")
     gitea_token: str = Field(default="")
@@ -136,6 +154,11 @@ class Settings(BaseSettings):
             if label.strip() and agent.strip():
                 out[label.strip().lower()] = agent.strip()
         return out
+
+    @property
+    def research_theme_list(self) -> list[str]:
+        """Темы ресёрча из CSV (непустые, без пробелов по краям)."""
+        return [t.strip() for t in self.research_themes.split(",") if t.strip()]
 
     @property
     def agent_bot_tokens(self) -> dict[str, str]:
