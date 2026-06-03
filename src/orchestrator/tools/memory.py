@@ -54,3 +54,9 @@ class ConversationStore:
 
     def all_notes(self, conversation_id: str) -> dict[str, str]:
         return dict(self._notes[conversation_id])
+
+    # --- статистика (для дашборда) ---
+
+    def stats(self) -> tuple[int, int]:
+        """(число активных разговоров, суммарное число сообщений в памяти)."""
+        return len(self._history), sum(len(b) for b in self._history.values())

@@ -102,5 +102,16 @@ class VectorStore:
             )
         return hits
 
+    async def count(self, namespace: str) -> int | None:
+        """Число точек в коллекции namespace (0 — нет коллекции, None — Qdrant недоступен)."""
+        name = self._collection(namespace)
+        try:
+            if not await self._client.collection_exists(name):
+                return 0
+            res = await self._client.count(name, exact=True)
+            return res.count
+        except Exception:  # noqa: BLE001 — Qdrant недоступен/ошибка
+            return None
+
     async def close(self) -> None:
         await self._client.close()

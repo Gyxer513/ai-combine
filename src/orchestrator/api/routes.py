@@ -28,6 +28,7 @@ from pydantic_ai.messages import (
 
 from ..agents.base import AgentDeps, shared_store, shared_vstore
 from ..agents.registry import REGISTRY, get_agent
+from ..metrics import shared_metrics
 from ..rag.embedder import EmbeddingClient
 from ..tools.shell import BrokerClient
 from ..tools.web_search import WebSearchClient
@@ -85,6 +86,7 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
         message_history=store.history(conversation_id),
     )
     store.extend_history(conversation_id, result.new_messages())
+    _record(card.name, result.usage)
     log.info("chat.done", agent=card.name, conversation_id=conversation_id)
 
     return ChatResponse(
@@ -155,6 +157,7 @@ async def openai_chat_completions(req: OpenAIChatRequest, request: Request):
         )
 
     result = await card.agent.run(prompt, deps=deps, message_history=history)
+    _record(card.name, result.usage)
     log.info("openai.chat.done", agent=card.name, stream=False)
     return {
         "id": completion_id,
@@ -198,6 +201,7 @@ async def _stream_completion(
         async with card.agent.run_stream(prompt, deps=deps, message_history=history) as result:
             async for delta in result.stream_text(delta=True):
                 yield chunk({"content": delta}, None)
+            _record(card.name, result.usage)
     except Exception as exc:  # noqa: BLE001 — в стрим уже нельзя вернуть HTTP-ошибку
         log.warning("openai.chat.stream_failed", agent=card.name, error=str(exc))
         yield chunk({"content": f"\n[ошибка: {exc}]"}, None)
@@ -205,12 +209,25 @@ async def _stream_completion(
     yield "data: [DONE]\n\n"
 
 
+def _tokens(usage) -> tuple[int, int]:
+    """(input, output) токены из RunUsage Pydantic AI (`result.usage` — свойство)."""
+    return int(getattr(usage, "input_tokens", 0) or 0), int(getattr(usage, "output_tokens", 0) or 0)
+
+
 def _usage_dict(usage) -> dict:
-    """Best-effort извлечение токенов из RunUsage Pydantic AI."""
-    prompt_tokens = getattr(usage, "input_tokens", None) or 0
-    completion_tokens = getattr(usage, "output_tokens", None) or 0
+    """OpenAI-совместимый блок usage."""
+    prompt_tokens, completion_tokens = _tokens(usage)
     return {
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": prompt_tokens + completion_tokens,
     }
+
+
+def _record(agent: str, usage) -> None:
+    """Учесть запрос в метриках дашборда (best-effort, не роняет ответ)."""
+    try:
+        inp, out = _tokens(usage)
+        shared_metrics().record(agent, inp, out)
+    except Exception:  # noqa: BLE001 — метрики не должны влиять на ответ
+        shared_metrics().record(agent, 0, 0)
