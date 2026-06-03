@@ -12,7 +12,7 @@ import httpx
 import structlog
 from fastapi import FastAPI
 
-from .api import routes
+from .api import dashboard, routes
 from .config import settings
 
 log = structlog.get_logger()
@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Combine Orchestrator", version="0.1.0", lifespan=lifespan)
 app.include_router(routes.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/health")
