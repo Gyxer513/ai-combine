@@ -1,9 +1,12 @@
 """👴 Дед — Chronicler Agent (летописец).
 
-Раз в день описывает в нарративе, что наработал комбайн и что менялось в проектах
-Filipp; интерактивно — пересказывает события из летописи. Модель —
-`nemotron-ultra-free` (1M контекст, free: летописцу важнее охват и качество
-нарратива, чем скорость), резерв `qwen-max`. Чувствительность INTERNAL.
+Интерактивно (чат/бот) пересказывает события из летописи — модель `qwen-plus`
+(быстро и отзывчиво для диалога), резерв `qwen-max`.
+
+Жирный `nemotron-ultra-free` (550B, 1M контекст) приберегаем для РАЗОВОЙ дневной
+летописи в chronicle-worker (там охват и качество нарратива важнее скорости, а
+free-тир медленный для интерактива) — см. `settings.chronicle_model`.
+Чувствительность INTERNAL.
 """
 
 from __future__ import annotations
@@ -24,8 +27,8 @@ NAME = "ded"
 TITLE = "👴 Дед"
 SENSITIVITY = DataSensitivity.INTERNAL
 
-# nemotron-3-ultra-550b (free, 1M контекст) основная, резерв qwen-max.
-MODELS = ["nemotron-ultra-free", "qwen-max"]
+# Интерактив: быстрая qwen-plus, резерв qwen-max. (Ultra — только в chronicle-worker.)
+MODELS = ["qwen-plus", "qwen-max"]
 
 agent = Agent(
     build_model(MODELS),

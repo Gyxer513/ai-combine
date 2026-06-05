@@ -178,7 +178,7 @@ services:
     command: ["python", "-m", "src.chronicle_worker.main"]
     env_file: .env
     environment:
-      - ORCHESTRATOR_URL=http://orchestrator:8000
+      - LITELLM_BASE_URL=http://litellm:4000/v1
       - CHRONICLE_INTERVAL_MIN=${CHRONICLE_INTERVAL_MIN:-1440}
     profiles: ["app", "chronicle"]
     restart: unless-stopped

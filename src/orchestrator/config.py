@@ -117,7 +117,10 @@ class Settings(BaseSettings):
     # --- Chronicle-worker (ДЕД: летопись) ---
     chronicle_note: str = Field(default="Летопись AI Combine")
     chronicle_note_category: str = Field(default="AI Projects")
-    chronicle_agent: str = Field(default="ded")
+    # Разовая летопись — на жирной nemotron-ultra (качество нарратива важнее скорости;
+    # прямой вызов, не через интерактивного ДЕДа, у которого модель быстрая).
+    chronicle_model: str = Field(default="nemotron-ultra-free")
+    chronicle_max_tokens: int = Field(default=900)
     chronicle_lookback_hours: int = Field(default=24)  # окно «дня» для сбора активности
     chronicle_interval_min: int = Field(default=0)  # 0 — один проход; 1440 — раз в день
 

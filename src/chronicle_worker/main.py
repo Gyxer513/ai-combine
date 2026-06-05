@@ -4,7 +4,9 @@
 * комбайн: выполненные Deck-задачи (Done) + новые карточки-идеи;
 * проекты Filipp: заметки Nextcloud, изменённые за окно (lookback).
 
-Дайджест уходит ДЕДу (через оркестратор, agent=ded), его нарратив дописывается
+Дайджест уходит ОДНИМ прямым вызовом летописной модели (`chronicle_model`,
+по умолчанию nemotron-ultra — качество нарратива важнее скорости для разовой
+задачи; интерактивный ДЕД-агент при этом на быстрой модели). Нарратив дописывается
 в заметку «Летопись AI Combine» (новая запись — сверху, под датой).
 
 Запуск: `python -m src.chronicle_worker.main`
@@ -16,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import time
 from datetime import date
+from pathlib import Path
 
 import httpx
 import structlog
@@ -27,22 +30,11 @@ from .notes import NotesClient
 
 log = structlog.get_logger()
 
-
-class OrchestratorClient:
-    """Минимальный клиент к оркестратору (/chat)."""
-
-    def __init__(self, http: httpx.AsyncClient, base_url: str) -> None:
-        self._http = http
-        self._base = base_url.rstrip("/")
-
-    async def chat(self, message: str, agent: str, conversation_id: str) -> str:
-        resp = await self._http.post(
-            f"{self._base}/chat",
-            json={"message": message, "agent": agent, "conversation_id": conversation_id},
-            timeout=600,  # nemotron-ultra free может думать долго
-        )
-        resp.raise_for_status()
-        return resp.json().get("reply", "")
+# Персона ДЕДа — тот же промпт, что у интерактивного агента (читаем файл напрямую,
+# без импорта orchestrator.agents — у воркера нет rag-зависимостей).
+_DED_PROMPT = (
+    Path(__file__).resolve().parent.parent / "orchestrator" / "prompts" / "ded.md"
+).read_text(encoding="utf-8")
 
 
 def _recent(ts, cutoff: float) -> bool:
@@ -98,20 +90,38 @@ def build_digest(done: list[str], ideas: list[str], notes: list[str]) -> str:
     )
 
 
-async def run_once(
-    deck: DeckClient, notes: NotesClient, orch: OrchestratorClient
-) -> dict[str, int]:
+async def write_chronicle(http: httpx.AsyncClient, digest: str, day: str) -> str:
+    """Один прямой вызов летописной модели через LiteLLM (без agentic-loop)."""
+    user = (
+        f"Сводка за {day} (окно {settings.chronicle_lookback_hours} ч):\n\n{digest}\n\n"
+        "Напиши запись летописи за этот день — короткий живой нарратив (абзац-два)."
+    )
+    resp = await http.post(
+        f"{settings.litellm_base_url.rstrip('/')}/chat/completions",
+        headers={"Authorization": f"Bearer {settings.litellm_master_key}"},
+        json={
+            "model": settings.chronicle_model,
+            "messages": [
+                {"role": "system", "content": _DED_PROMPT},
+                {"role": "user", "content": user},
+            ],
+            "max_tokens": settings.chronicle_max_tokens,
+            "temperature": 0.8,
+        },
+        timeout=600,  # nemotron-ultra free может думать долго (это батч раз в день)
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
+async def run_once(http: httpx.AsyncClient, deck: DeckClient, notes: NotesClient) -> dict[str, int]:
     cutoff = time.time() - settings.chronicle_lookback_hours * 3600
     done, ideas = await gather_combine(deck, cutoff)
     changed = await gather_projects(notes, cutoff)
     today = date.today().isoformat()
 
     digest = build_digest(done, ideas, changed)
-    prompt = (
-        f"Сводка за {today} (окно {settings.chronicle_lookback_hours} ч):\n\n{digest}\n\n"
-        "Напиши запись летописи за этот день — короткий живой нарратив."
-    )
-    narrative = await orch.chat(prompt, settings.chronicle_agent, f"chronicle:{today}")
+    narrative = await write_chronicle(http, digest, today)
     await notes.append_section(
         title=settings.chronicle_note,
         category=settings.chronicle_note_category,
@@ -141,11 +151,15 @@ async def run() -> None:
             settings.nextcloud_user,
             settings.nextcloud_app_password,
         )
-        orch = OrchestratorClient(http, settings.orchestrator_url)
-        log.info("chronicle.start", note=settings.chronicle_note, interval_min=interval)
+        log.info(
+            "chronicle.start",
+            note=settings.chronicle_note,
+            model=settings.chronicle_model,
+            interval_min=interval,
+        )
         while True:
             try:
-                await run_once(deck, notes, orch)
+                await run_once(http, deck, notes)
             except Exception as exc:  # noqa: BLE001 — цикл не должен падать
                 log.warning("chronicle.cycle_failed", error=str(exc))
             if interval <= 0:

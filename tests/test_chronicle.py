@@ -12,7 +12,9 @@ from src.orchestrator.config import settings
 
 def test_ded_registered():
     assert "ded" in REGISTRY
-    assert REGISTRY["ded"].models[0] == "nemotron-ultra-free"
+    # Интерактивный ДЕД на быстрой модели; ultra — для батч-летописи (chronicle_model).
+    assert REGISTRY["ded"].models[0] == "qwen-plus"
+    assert settings.chronicle_model == "nemotron-ultra-free"
 
 
 def test_build_digest_blocks():
