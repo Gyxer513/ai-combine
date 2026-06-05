@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     telegram_bot_token_kolobok: str = Field(default="")
     telegram_bot_token_koschei: str = Field(default="")
     telegram_bot_token_levsha: str = Field(default="")
+    telegram_bot_token_ded: str = Field(default="")
     telegram_allowed_users: str = Field(default="")
     # Fail-closed: при пустом whitelist по умолчанию НИКОГО не пускаем (id отказанных
     # пишутся в лог — узнать свой и добавить). Открытый bootstrap-режим (пускать
@@ -112,6 +113,13 @@ class Settings(BaseSettings):
             "контент и инфопродукты,b2b-микросервисы,Telegram-боты и автоматизация"
         )
     )
+
+    # --- Chronicle-worker (ДЕД: летопись) ---
+    chronicle_note: str = Field(default="Летопись AI Combine")
+    chronicle_note_category: str = Field(default="AI Projects")
+    chronicle_agent: str = Field(default="ded")
+    chronicle_lookback_hours: int = Field(default=24)  # окно «дня» для сбора активности
+    chronicle_interval_min: int = Field(default=0)  # 0 — один проход; 1440 — раз в день
 
     # --- Gitea (Этап 6) ---
     gitea_url: str = Field(default="")
@@ -175,6 +183,8 @@ class Settings(BaseSettings):
             out["koschei"] = self.telegram_bot_token_koschei
         if self.telegram_bot_token_levsha:
             out["levsha"] = self.telegram_bot_token_levsha
+        if self.telegram_bot_token_ded:
+            out["ded"] = self.telegram_bot_token_ded
         return out
 
     @property

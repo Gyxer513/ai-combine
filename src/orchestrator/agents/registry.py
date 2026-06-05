@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from pydantic_ai import Agent
 
-from . import kolobok, koschei, levsha
+from . import ded, kolobok, koschei, levsha
 from .base import AgentDeps, DataSensitivity
 
 
@@ -51,6 +51,14 @@ REGISTRY: dict[str, AgentCard] = {
         sensitivity=levsha.SENSITIVITY,
         models=levsha.MODELS,
         agent=levsha.agent,
+    ),
+    ded.NAME: AgentCard(
+        name=ded.NAME,
+        title=ded.TITLE,
+        description="Летописец: ведёт хронику комбайна и проектов, пересказывает события.",
+        sensitivity=ded.SENSITIVITY,
+        models=ded.MODELS,
+        agent=ded.agent,
     ),
 }
 

@@ -2,13 +2,14 @@
 
 Личный мульти-агентный комбайн на базе китайских LLM с локальной инфраструктурой.
 
-Три специализированных агента:
+Четыре специализированных агента:
 
 | Агент | Роль | Назначение |
 |---|---|---|
 | 🦴 **Кощей** | SecOps | Обучение ИБ, threat modeling, defensive coding, hardening собственной инфры |
-| 🔨 **Левша** | Coder | Работа с Gitea-репозиториями: чтение, написание, ревью, PR |
+| 🔨 **Левша** | Coder | Работа с репозиториями: чтение, написание, ревью, PR |
 | 🍞 **Колобок** | General | Общие вопросы, поиск, ресёрч, помощник по жизни |
+| 👴 **Дед** | Chronicler | Летопись комбайна и проектов; пересказ событий |
 
 ## Стек
 
@@ -197,6 +198,23 @@ SearXNG (0 токенов) → **один** дешёвый LLM-вызов (`qwen
 ```bash
 docker compose --profile app up -d                  # research-worker раз в день
 docker compose run --rm -e RESEARCH_INTERVAL_MIN=0 research-worker   # разовый прогон
+```
+
+## Автономия: 👴 Дед-летописец (chronicle-worker)
+
+Четвёртый агент **Дед** ведёт летопись. Раз в день `chronicle-worker` собирает
+«день»: выполненные Deck-задачи (Done) + новые идеи + изменённые заметки Filipp →
+Дед пишет короткий нарратив → дозапись в Nextcloud-заметку «Летопись AI Combine»
+(новая запись сверху, под датой). Интерактивно Дед пересказывает события.
+
+- Модель Деда — `nemotron-ultra-free` (NVIDIA Nemotron-3 Ultra 550B, 1M контекст,
+  free: летописцу важнее охват/качество, чем скорость), резерв `qwen-max`.
+- Свой Telegram-бот: `TELEGRAM_BOT_TOKEN_DED` (как у Кощея/Левши/Колобка).
+- Окно дня — `CHRONICLE_LOOKBACK_HOURS` (24); период — `CHRONICLE_INTERVAL_MIN` (1440).
+
+```bash
+docker compose --profile app up -d                   # chronicle-worker раз в день
+docker compose run --rm -e CHRONICLE_INTERVAL_MIN=0 chronicle-worker   # разовый прогон
 ```
 
 ## Этап 6: Sandbox (изолированное исполнение)

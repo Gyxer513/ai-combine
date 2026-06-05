@@ -166,3 +166,19 @@ services:
       - RESEARCH_INTERVAL_MIN=${RESEARCH_INTERVAL_MIN:-1440}
     profiles: ["app", "research"]
     restart: unless-stopped
+
+  # --- Chronicle-worker (ДЕД: летопись) ---
+  # Тот же образ воркера, другой entrypoint. Раз в день собирает день комбайна +
+  # проектов -> ДЕД пишет нарратив -> заметка «Летопись AI Combine».
+  # Разовый прогон: docker compose run --rm -e CHRONICLE_INTERVAL_MIN=0 chronicle-worker
+  chronicle-worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    command: ["python", "-m", "src.chronicle_worker.main"]
+    env_file: .env
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+      - CHRONICLE_INTERVAL_MIN=${CHRONICLE_INTERVAL_MIN:-1440}
+    profiles: ["app", "chronicle"]
+    restart: unless-stopped
