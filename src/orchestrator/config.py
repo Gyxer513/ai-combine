@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     sandbox_mem: str = Field(default="512m")
     sandbox_cpus: float = Field(default=1.0)
     sandbox_pids: int = Field(default=256)
-    sandbox_timeout_sec: int = Field(default=60)
+    sandbox_timeout_sec: int = Field(default=300)  # сканы (nuclei/nikto) идут минутами
     sandbox_output_limit: int = Field(default=8000)  # символов вывода в ответ модели
 
     # --- Веб-поиск (SearXNG, self-hosted) ---

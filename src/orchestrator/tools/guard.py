@@ -63,6 +63,8 @@ SECOPS_ALLOWED: frozenset[str] = frozenset(
     {
         "nmap", "ncat", "nc", "openssl", "dig", "host", "nslookup", "whois",
         "curl", "ping", "traceroute", "tracepath", "ip", "ss",
+        # веб-аудит (только по своей инфре — ограничено промптом Кощея)
+        "nuclei", "nikto", "testssl.sh", "httpx",
         # текстовая обработка вывода
         "grep", "egrep", "fgrep", "awk", "gawk", "sed", "cut", "sort", "uniq",
         "head", "tail", "cat", "tr", "wc", "jq", "echo", "tee", "column",
