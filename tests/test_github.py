@@ -13,7 +13,7 @@ def _client(handler, **kw) -> GitHubClient:
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     kw.setdefault("api_url", "https://api.github.test")
     kw.setdefault("token", "tok")
-    kw.setdefault("repo", "Gyxer513/mis-report")
+    kw.setdefault("repo", "example/mis-report")
     return GitHubClient(http, **kw)
 
 
@@ -26,7 +26,7 @@ def test_configured_flag():
 
 async def test_read_file_raw_wrapped():
     def handler(request: httpx.Request) -> httpx.Response:
-        assert "/repos/Gyxer513/mis-report/contents/" in str(request.url)
+        assert "/repos/example/mis-report/contents/" in str(request.url)
         assert request.headers["Authorization"] == "Bearer tok"
         assert "raw" in request.headers["Accept"]
         return httpx.Response(200, text="print('hi')")

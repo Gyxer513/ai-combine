@@ -1,8 +1,10 @@
 [project]
 name = "ai-combine"
 version = "0.1.0"
-description = "Личный мульти-агентный комбайн на базе китайских LLM с локальной инфраструктурой"
+description = "Self-hosted мульти-агентный комбайн: SecOps/Coder/General/Chronicler агенты на дешёвых LLM"
 readme = "README.md"
+license = "MIT"
+authors = [{ name = "Filipp Panchuk (Gyxer)" }]
 requires-python = ">=3.11"
 dependencies = [
     # --- Оркестрация агентов ---

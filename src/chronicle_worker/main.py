@@ -2,7 +2,7 @@
 
 Раз в день собирает «день»:
 * комбайн: выполненные Deck-задачи (Done) + новые карточки-идеи;
-* проекты Filipp: заметки Nextcloud, изменённые за окно (lookback).
+* проекты владельца: заметки Nextcloud, изменённые за окно (lookback).
 
 Дайджест уходит ОДНИМ прямым вызовом летописной модели (`chronicle_model`,
 по умолчанию nemotron-ultra — качество нарратива важнее скорости для разовой
@@ -63,7 +63,7 @@ async def gather_combine(deck: DeckClient, cutoff: float) -> tuple[list[str], li
 
 
 async def gather_projects(notes: NotesClient, cutoff: float) -> list[str]:
-    """Заметки Filipp, изменённые за окно (кроме самой летописи)."""
+    """Заметки владельца, изменённые за окно (кроме самой летописи)."""
     out: list[str] = []
     for note in await notes.list_notes():
         if note.get("title") == settings.chronicle_note:
@@ -85,7 +85,7 @@ def build_digest(done: list[str], ideas: list[str], notes: list[str]) -> str:
         [
             block("Выполненные задачи комбайна (Deck → Done)", done),
             block("Новые идеи заработка", ideas),
-            block("Изменённые заметки/проекты Filipp", notes),
+            block("Изменённые заметки/проекты владельца", notes),
         ]
     )
 
