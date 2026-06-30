@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from src.orchestrator.agents import koschei, levsha
+from src.orchestrator.agents import coder, recon
 from src.orchestrator.tools.shell import BrokerClient
 
 
@@ -43,5 +43,5 @@ async def test_broker_client_handles_unreachable():
 
 
 def test_agents_have_shell_tools():
-    assert "run_security_command" in koschei.agent._function_toolset.tools
-    assert "run_shell" in levsha.agent._function_toolset.tools
+    assert "run_security_command" in recon.agent._function_toolset.tools
+    assert "run_shell" in coder.agent._function_toolset.tools

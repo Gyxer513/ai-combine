@@ -17,9 +17,9 @@ def _mem_db() -> Database:
 
 def test_metrics_record_accumulates():
     m = Metrics(_mem_db())
-    m.record("kolobok", 100, 50)
-    m.record("kolobok", 10, 5)
-    a = m.for_agent("kolobok")
+    m.record("assistant", 100, 50)
+    m.record("assistant", 10, 5)
+    a = m.for_agent("assistant")
     assert a.requests == 2
     assert a.input_tokens == 110
     assert a.output_tokens == 55
@@ -69,6 +69,6 @@ def test_api_dashboard_structure(monkeypatch):
     assert {"uptime_sec", "services", "agents", "rag", "conversations", "messages"} <= data.keys()
     # три агента из реестра
     names = {a["name"] for a in data["agents"]}
-    assert {"kolobok", "koschei", "levsha"} <= names
+    assert {"assistant", "recon", "coder"} <= names
     assert data["services"][0]["name"] == "LiteLLM"
     assert data["rag"][0]["points"] == 419

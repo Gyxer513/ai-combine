@@ -15,10 +15,10 @@ OpenWebUI и Telegram, RAG по своей базе знаний, изолиро
 
 | Агент | Роль | Назначение |
 |---|---|---|
-| 🦴 **Кощей** | SecOps | ИБ, скан/хардненинг своей инфры (nmap/nuclei/nikto/testssl/httpx в sandbox) |
-| 🔨 **Левша** | Coder | Код: чтение/написание/ревью, прогон тестов в sandbox, GitHub |
-| 🍞 **Колобок** | General | Общие вопросы, поиск, ресёрч |
-| 👴 **Дед** | Chronicler | Летопись комбайна и проектов; пересказ событий |
+| 🛡 **recon** | SecOps | ИБ, скан/хардненинг своей инфры (nmap/nuclei/nikto/testssl/httpx в sandbox) |
+| 🔨 **coder** | Coder | Код: чтение/написание/ревью, прогон тестов в sandbox, GitHub |
+| 💬 **assistant** | General | Общие вопросы, поиск, ресёрч |
+| 🧭 **planner** | Orchestrator | Режет ТЗ проекта на дочерние задачи для агентов (карточки на Deck) |
 
 ## Возможности
 
@@ -32,7 +32,7 @@ OpenWebUI и Telegram, RAG по своей базе знаний, изолиро
 - **Sandbox**: изолированное исполнение через привилегированный `sandbox-broker`
   (docker.sock только у него), allowlist бинарей, hardening, защита от инъекций.
 - **Автономия**: воркеры по расписанию — задачи из Nextcloud Deck, ресёрч идей
-  заработка, дневная летопись.
+  заработка; планировщик режет проект на задачи для остальных агентов.
 
 ## Стек
 
@@ -50,8 +50,7 @@ OpenWebUI · Docker. LLM и embeddings — через API (без локальн
 | `orchestrator` | `app` | FastAPI + Pydantic AI, 4 агента, дашборд `/dashboard` (:8000) |
 | `sandbox-broker` | `app` | **единственный с `docker.sock`** — порождает sandbox'ы |
 | `rag-indexer` | `app` | Nextcloud → Qdrant (цикл) |
-| `research-worker` | `app` | Колобок ищет идеи заработка → Deck-доска «Идеи» |
-| `chronicle-worker` | `app` | Дед пишет дневную летопись |
+| `research-worker` | `app` | assistant ищет идеи заработка → Deck-доска «Идеи» |
 | `deck-worker` | `app` | задачи из Nextcloud Deck → агенты |
 | `telegram-bot` | `telegram` | боты агентов (по одному на агента) |
 
@@ -74,14 +73,15 @@ curl http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_K
 
 ## Этап 2: оркестратор и три агента
 
-Поднят FastAPI-оркестратор на Pydantic AI со всеми тремя агентами. Каждый —
+Поднят FastAPI-оркестратор на Pydantic AI со всеми четырьмя агентами. Каждый —
 отдельная «модель» в OpenWebUI; переключение = выбор модели.
 
 | Агент | Модель (основная → fallback) | Чувствительность |
 |---|---|---|
-| 🍞 `kolobok` | `owl-alpha-free` → qwen-plus → qwen-max | public |
-| 🦴 `koschei` | `glm-5.1` (thinking) → nemotron-super-free → qwen-max | secret |
-| 🔨 `levsha` | `nemotron-super-free` → qwen-coder → qwen-max | internal |
+| 💬 `assistant` | `owl-alpha-free` → qwen-plus → qwen-max | public |
+| 🛡 `recon` | `glm-5.1` (thinking) → nemotron-super-free → qwen-max | secret |
+| 🔨 `coder` | `nemotron-super-free` → qwen-coder → qwen-max | internal |
+| 🧭 `planner` | `qwen-max` → qwen-plus | internal |
 
 Инструменты (Этап 2): `web_search` (SearXNG → fallback DuckDuckGo) и простая память
 (scratchpad-заметки + многоходовой диалог по `conversation_id`). Пер-агентные
@@ -110,14 +110,14 @@ docker compose --profile app up -d        # orchestrator на :8000
 ```bash
 curl -s http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Кто ты?", "agent": "koschei"}'
+  -d '{"message": "Кто ты?", "agent": "recon"}'
 ```
 
 **Агенты в OpenWebUI:** Admin Panel → Settings → Connections → OpenAI API → ＋,
 base URL `http://host.docker.internal:8000/v1` (или `http://orchestrator:8000/v1`,
 если OpenWebUI в той же compose-сети), **ключ = `ORCHESTRATOR_API_TOKEN`** (если задан;
 оркестратор проверяет его на `/chat`, `/agents`, `/v1/*`). В выпадашке моделей появятся
-`kolobok` / `koschei` / `levsha` / `ded`. Прямые модели LiteLLM (`glm-5.1`, `qwen-*`) — это
+`assistant` / `recon` / `coder` / `planner`. Прямые модели LiteLLM (`glm-5.1`, `qwen-*`) — это
 отдельное подключение к `http://litellm:4000/v1`, у них **нет** персоны/инструментов.
 
 > **Доступ к оркестратору.** Порт забинден на `127.0.0.1:8000` (только localhost) — у
@@ -133,7 +133,7 @@ base URL `http://host.docker.internal:8000/v1` (или `http://orchestrator:8000
 TEI/BGE-M3 — бережём RAM. Вектора в Qdrant, по коллекции на namespace.
 
 - Источники: Nextcloud **Notes** (категория → namespace) и **WebDAV-папки**.
-- Namespace на агента: Колобок→`personal`, Кощей→`security`, Левша→`coding`.
+- Namespace на агента: assistant/planner→`personal`, recon→`security`, coder→`coding`.
 - Индексатор инкрементальный: манифест `data/rag_manifest.json` хранит хэши,
   неизменённые документы не переэмбеддятся.
 
@@ -162,7 +162,7 @@ LITELLM_BASE_URL=http://localhost:4000/v1 QDRANT_URL=http://localhost:6333 \
 - Обычный текст уходит агенту этого бота; история по `tg:<agent>:<chat_id>:<session>`.
 
 В `.env`:
-- `TELEGRAM_BOT_TOKEN` — общий, идёт Колобку (или явный `TELEGRAM_BOT_TOKEN_KOLOBOK`);
+- `TELEGRAM_BOT_TOKEN` — общий, идёт assistant (или явный `TELEGRAM_BOT_TOKEN_KOLOBOK`);
 - `TELEGRAM_BOT_TOKEN_KOSCHEI`, `TELEGRAM_BOT_TOKEN_LEVSHA` — отдельные боты
   (создать в @BotFather). Поллятся только заданные — можно начать с одного.
 - `TELEGRAM_ALLOWED_USERS` — числовые user_id через запятую (узнать у @userinfobot),
@@ -201,8 +201,9 @@ Claim переносом в In Progress защищает от повторной
 
 - Доска (`DECK_BOARD`, дефолт «Задачи AI Combine»), стеки `To Do` / `In Progress`
   / `Done`.
-- Метка → агент: `DECK_LABEL_AGENT_MAP="sec:koschei,code:levsha,ask:kolobok"`,
-  без метки → `DECK_DEFAULT_AGENT` (kolobok).
+- Метка → агент: `DECK_LABEL_AGENT_MAP="sec:recon,code:coder,ask:assistant"`,
+  без метки → `DECK_DEFAULT_AGENT` (assistant). Провал задачи → стек
+  `DECK_FAILED_STACK` (дефолт «Failed»), не Done.
 - Опрос каждые `DECK_POLL_INTERVAL_MIN` (в профиле `app` дефолт 2 мин).
 
 Нужны `NEXTCLOUD_URL` / `NEXTCLOUD_USER` / `NEXTCLOUD_APP_PASSWORD` (app password
@@ -216,7 +217,7 @@ docker compose run --rm -e DECK_POLL_INTERVAL_MIN=0 deck-worker
 
 ## Автономия: research-worker (ресёрч заработка)
 
-Колобок регулярно ищет идеи заработка (автоматизация, AI, нестандартное) и кладёт
+assistant регулярно ищет идеи заработка (автоматизация, AI, нестандартное) и кладёт
 их карточками на Deck-доску `Идеи`. **Token-bounded by design:** не agentic-loop, а
 детерминированный конвейер на один прогон — ротация темы (по дате) → N поисков
 SearXNG (0 токенов) → **один** дешёвый LLM-вызов (`qwen-flash`) с антидублем по уже
@@ -230,33 +231,28 @@ docker compose --profile app up -d                  # research-worker раз в 
 docker compose run --rm -e RESEARCH_INTERVAL_MIN=0 research-worker   # разовый прогон
 ```
 
-## Автономия: 👴 Дед-летописец (chronicle-worker)
+## Оркестрация: 🧭 planner (декомпозиция проектов)
 
-Четвёртый агент **Дед** ведёт летопись. Раз в день `chronicle-worker` собирает
-«день»: выполненные Deck-задачи (Done) + новые идеи + изменённые заметки владельца →
-Дед пишет короткий нарратив → дозапись в Nextcloud-заметку «Летопись AI Combine»
-(новая запись сверху, под датой). Интерактивно Дед пересказывает события.
+Четвёртый агент **planner** работает как тимлид: получает ТЗ или цель проекта и
+режет её на дочерние задачи для остальных агентов. Сначала показывает план текстом
+(подзадача = исполнитель + критерий приёмки), и по подтверждению вызывает инструмент
+`slice_project`, который раскладывает подзадачи карточками в стек `To Do` доски задач
+(с меткой исполнителя) — дальше их подхватывает `deck-worker`.
 
-- Модели разведены: **интерактивный** Дед (чат/бот) — быстрая `qwen-plus`;
-  **разовая летопись** — жирная `nemotron-ultra-free` (NVIDIA Nemotron-3 Ultra
-  550B, 1M контекст; качество нарратива важнее скорости, free-тир медленный для
-  чата) через `CHRONICLE_MODEL`.
-- Свой Telegram-бот: `TELEGRAM_BOT_TOKEN_DED` (как у Кощея/Левши/Колобка).
-- Окно дня — `CHRONICLE_LOOKBACK_HOURS` (24); период — `CHRONICLE_INTERVAL_MIN` (1440).
-
-```bash
-docker compose --profile app up -d                   # chronicle-worker раз в день
-docker compose run --rm -e CHRONICLE_INTERVAL_MIN=0 chronicle-worker   # разовый прогон
-```
+- Исполнители: `recon` / `coder` / `assistant` (метки `sec` / `code` / `ask`).
+- Модель: `qwen-max` → `qwen-plus` (декомпозиция требует ризонинга).
+- Свой Telegram-бот: `TELEGRAM_BOT_TOKEN_PLANNER`.
+- Метки `sec`/`code`/`ask` должны существовать на доске — иначе карточка создаётся
+  без метки и уходит агенту по умолчанию.
 
 ## Этап 6: Sandbox (изолированное исполнение)
 
-Кощей и Левша запускают команды в одноразовом Docker-контейнере и сами разбирают
+recon и coder запускают команды в одноразовом Docker-контейнере и сами разбирают
 вывод (а не просят копипастить):
 
-- 🦴 Кощей — `run_security_command` (nmap/openssl/dig/curl/nc) **с сетью**, для
+- 🛡 recon — `run_security_command` (nmap/openssl/dig/curl/nc) **с сетью**, для
   скана/харденинга собственной инфры.
-- 🔨 Левша — `run_shell` (код/тесты/линтеры) **без сети**.
+- 🔨 coder — `run_shell` (код/тесты/линтеры) **без сети**.
 
 Hardening sandbox'а: `cap_drop ALL`, `no-new-privileges`, read-only rootfs +
 tmpfs `/tmp`, лимиты mem/cpu/pids, non-root (uid 10001), таймаут, `--rm`.

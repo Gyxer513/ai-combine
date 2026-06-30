@@ -153,7 +153,7 @@ services:
     profiles: ["app", "deck"]
     restart: unless-stopped
 
-  # --- Research-worker (Колобок: ресёрч заработка) ---
+  # --- Research-worker (assistant: ресёрч заработка) ---
   # Тот же образ воркера, другой entrypoint. Token-bounded: детерминированный
   # поиск + один дешёвый LLM-вызов на прогон -> карточки на Deck-доске «Идеи».
   # Дефолт раз в день (RESEARCH_INTERVAL_MIN=1440). Разовый прогон:
@@ -169,20 +169,4 @@ services:
       - SEARXNG_URL=http://searxng:8080
       - RESEARCH_INTERVAL_MIN=${RESEARCH_INTERVAL_MIN:-1440}
     profiles: ["app", "research"]
-    restart: unless-stopped
-
-  # --- Chronicle-worker (ДЕД: летопись) ---
-  # Тот же образ воркера, другой entrypoint. Раз в день собирает день комбайна +
-  # проектов -> ДЕД пишет нарратив -> заметка «Летопись AI Combine».
-  # Разовый прогон: docker compose run --rm -e CHRONICLE_INTERVAL_MIN=0 chronicle-worker
-  chronicle-worker:
-    build:
-      context: .
-      dockerfile: docker/worker.Dockerfile
-    command: ["python", "-m", "src.chronicle_worker.main"]
-    env_file: .env
-    environment:
-      - LITELLM_BASE_URL=http://litellm:4000/v1
-      - CHRONICLE_INTERVAL_MIN=${CHRONICLE_INTERVAL_MIN:-1440}
-    profiles: ["app", "chronicle"]
     restart: unless-stopped

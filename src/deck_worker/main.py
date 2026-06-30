@@ -21,7 +21,7 @@ from .client import DeckClient
 
 log = structlog.get_logger()
 
-_REPLY_TIMEOUT = 600  # агент (особенно Кощей со сканами) может работать минуты
+_REPLY_TIMEOUT = 600  # агент (особенно recon со сканами) может работать минуты
 
 
 class OrchestratorClient:

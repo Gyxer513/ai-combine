@@ -24,7 +24,12 @@ from ..metrics import shared_metrics
 router = APIRouter()
 
 # namespace RAG по агентам (см. register_rag_tool в модулях агентов).
-_RAG_NAMESPACES = {"kolobok": "personal", "koschei": "security", "levsha": "coding"}
+_RAG_NAMESPACES = {
+    "assistant": "personal",
+    "recon": "security",
+    "coder": "coding",
+    "planner": "personal",
+}
 
 
 async def _probe(http: httpx.AsyncClient, url: str, *, headers: dict | None = None) -> bool:

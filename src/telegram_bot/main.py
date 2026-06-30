@@ -36,7 +36,7 @@ async def run() -> None:
     if not tokens:
         raise SystemExit(
             "Не задан ни один токен бота "
-            "(TELEGRAM_BOT_TOKEN / TELEGRAM_BOT_TOKEN_KOLOBOK/KOSCHEI/LEVSHA)"
+            "(TELEGRAM_BOT_TOKEN / TELEGRAM_BOT_TOKEN_ASSISTANT/RECON/CODER/PLANNER)"
         )
 
     bots = []

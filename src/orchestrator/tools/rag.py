@@ -2,7 +2,7 @@
 
 `register_rag_tool(agent, namespace)` навешивает на агента `search_knowledge_base`,
 жёстко привязанный к его namespace — модель не выбирает namespace сама и не
-лезет в чужие данные (важно для Кощея: security-заметки не утекают General-агенту).
+лезет в чужие данные (важно для recon: security-заметки не утекают General-агенту).
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Тесты GitHub-клиента Левши (через httpx MockTransport)."""
+"""Тесты GitHub-клиента coder (через httpx MockTransport)."""
 
 from __future__ import annotations
 

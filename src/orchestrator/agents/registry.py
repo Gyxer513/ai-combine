@@ -1,8 +1,8 @@
 """Реестр агентов: единая точка, откуда API берёт агента по имени.
 
-Все трое (Колобок/Кощей/Левша) зарегистрированы и переключаются как отдельные
-«модели» в OpenWebUI. Специфичные инструменты (RAG для Кощея, Gitea/sandbox для
-Левши) дозаполняются на Этапах 3/6 — каркас и роутинг уже на месте.
+Все четверо (assistant / recon / coder / planner) зарегистрированы и переключаются
+как отдельные «модели» в OpenWebUI. Специфичные инструменты (RAG, sandbox, GitHub,
+Deck-планировщик) навешиваются в модулях самих агентов.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from pydantic_ai import Agent
 
-from . import ded, kolobok, koschei, levsha
+from . import assistant, coder, planner, recon
 from .base import AgentDeps, DataSensitivity
 
 
@@ -28,45 +28,45 @@ class AgentCard:
 
 
 REGISTRY: dict[str, AgentCard] = {
-    kolobok.NAME: AgentCard(
-        name=kolobok.NAME,
-        title=kolobok.TITLE,
+    assistant.NAME: AgentCard(
+        name=assistant.NAME,
+        title=assistant.TITLE,
         description="Общий помощник: ресёрч, поиск, бытовые вопросы.",
-        sensitivity=kolobok.SENSITIVITY,
-        models=kolobok.MODELS,
-        agent=kolobok.agent,
+        sensitivity=assistant.SENSITIVITY,
+        models=assistant.MODELS,
+        agent=assistant.agent,
     ),
-    koschei.NAME: AgentCard(
-        name=koschei.NAME,
-        title=koschei.TITLE,
+    recon.NAME: AgentCard(
+        name=recon.NAME,
+        title=recon.TITLE,
         description="SecOps: обучение ИБ, threat modeling, hardening своей инфры.",
-        sensitivity=koschei.SENSITIVITY,
-        models=koschei.MODELS,
-        agent=koschei.agent,
+        sensitivity=recon.SENSITIVITY,
+        models=recon.MODELS,
+        agent=recon.agent,
     ),
-    levsha.NAME: AgentCard(
-        name=levsha.NAME,
-        title=levsha.TITLE,
+    coder.NAME: AgentCard(
+        name=coder.NAME,
+        title=coder.TITLE,
         description="Coder: чтение, написание и ревью кода в репозиториях.",
-        sensitivity=levsha.SENSITIVITY,
-        models=levsha.MODELS,
-        agent=levsha.agent,
+        sensitivity=coder.SENSITIVITY,
+        models=coder.MODELS,
+        agent=coder.agent,
     ),
-    ded.NAME: AgentCard(
-        name=ded.NAME,
-        title=ded.TITLE,
-        description="Летописец: ведёт хронику комбайна и проектов, пересказывает события.",
-        sensitivity=ded.SENSITIVITY,
-        models=ded.MODELS,
-        agent=ded.agent,
+    planner.NAME: AgentCard(
+        name=planner.NAME,
+        title=planner.TITLE,
+        description="Планировщик: режет ТЗ проекта на дочерние задачи для агентов.",
+        sensitivity=planner.SENSITIVITY,
+        models=planner.MODELS,
+        agent=planner.agent,
     ),
 }
 
-DEFAULT_AGENT = kolobok.NAME
+DEFAULT_AGENT = assistant.NAME
 
 
 def get_agent(name: str | None) -> AgentCard:
-    """Вернуть карточку агента по имени (или дефолтного Колобка).
+    """Вернуть карточку агента по имени (или дефолтного assistant).
 
     Имя нечувствительно к регистру; неизвестное имя -> дефолтный агент,
     чтобы OpenWebUI с произвольной моделью не падал.

@@ -1,1 +1,1 @@
-"""Агенты: Кощей (SecOps), Левша (Coder), Колобок (General). Реализация — Этап 2/4."""
+"""Агенты: recon (SecOps), coder (Coder), assistant (General). Реализация — Этап 2/4."""

@@ -76,7 +76,7 @@ def test_secops_blocks(cmd):
 
 
 def test_secops_blocks_interpreters():
-    # ключевая граница: у Кощея сеть, интерпретаторы = эксфильтрация
+    # ключевая граница: у recon сеть, интерпретаторы = эксфильтрация
     for binary in ("python3", "bash", "sh", "perl", "ruby", "node"):
         ok, _ = secops.check(f"{binary} -e 'x'")
         assert not ok, binary

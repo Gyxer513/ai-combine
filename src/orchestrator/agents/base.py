@@ -8,7 +8,7 @@
 * `load_prompt` — чтение системного промпта из `prompts/<name>.md`.
 * `AgentDeps` — общие зависимости, прокидываемые в инструменты через `RunContext`.
 
-Сами агенты (Колобок/Кощей/Левша) собираются в своих модулях.
+Сами агенты (assistant/recon/coder) собираются в своих модулях.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class DataSensitivity(StrEnum):
 
     PUBLIC = "public"  # любые free-модели
     INTERNAL = "internal"  # только open weights / платные
-    SECRET = "secret"  # только платные / enterprise (Кощей)
+    SECRET = "secret"  # только платные / enterprise (recon)
 
 
 def history_capabilities() -> list[ProcessHistory]:
@@ -55,7 +55,7 @@ def load_prompt(name: str) -> str:
     """Прочитать системный промпт `prompts/<name>.md` + добавить security-преамбулу.
 
     Преамбула (защита от prompt injection) дописывается ко всем агентам
-    централизованно — чтобы Колобок/Кощей/Левша/будущий ДЕД одинаково не доверяли
+    централизованно — чтобы assistant/recon/coder/будущий planner одинаково не доверяли
     инструкциям, спрятанным в результатах инструментов.
     """
     path = PROMPTS_DIR / f"{name}.md"
@@ -98,7 +98,7 @@ class AgentDeps:
     embedder: EmbeddingClient | None = None
     vstore: VectorStore | None = None
     broker: BrokerClient | None = None  # клиент sandbox-broker (shell-инструменты)
-    github: GitHubClient | None = None  # клиент GitHub (репозитории, Левша)
+    github: GitHubClient | None = None  # клиент GitHub (репозитории, coder)
     extra: dict[str, str] = field(default_factory=dict)
 
 

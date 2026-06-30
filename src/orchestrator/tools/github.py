@@ -1,6 +1,6 @@
-"""GitHub-скил Левши: чтение репозитория и внесение изменений через PR.
+"""GitHub-скил coder: чтение репозитория и внесение изменений через PR.
 
-Перемычка для хоумлаба: рабочий GitLab за VPN недоступен надёжно, поэтому Левша
+Перемычка для хоумлаба: рабочий GitLab за VPN недоступен надёжно, поэтому coder
 пушит в GitHub (доступен отовсюду), а синхронизацию GitHub↔рабочий GitLab делает
 человек вручную.
 
@@ -8,7 +8,7 @@
 конкретный репозиторий. Все изменения идут в feature-ветку + Pull Request; прямой
 записи в основную ветку нет, человек ревьюит и мержит.
 
-Инструменты Левши: github_list_tree, github_read_file, github_commit_files, github_open_pr.
+Инструменты coder: github_list_tree, github_read_file, github_commit_files, github_open_pr.
 """
 
 from __future__ import annotations

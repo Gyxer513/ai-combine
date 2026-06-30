@@ -12,7 +12,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from src.orchestrator.agents import kolobok
+from src.orchestrator.agents import assistant
 from src.orchestrator.agents.base import AgentDeps
 from src.orchestrator.persistence import Database
 from src.orchestrator.rag.embedder import EmbeddingClient
@@ -101,9 +101,9 @@ async def test_search_knowledge_base_returns_hits():
             parts=[ToolCallPart(tool_name="search_knowledge_base", args={"query": "питон"})]
         )
 
-    with kolobok.agent.override(model=FunctionModel(fn)):
-        result = await kolobok.agent.run("вопрос", deps=_deps_with_rag(stub))
+    with assistant.agent.override(model=FunctionModel(fn)):
+        result = await assistant.agent.run("вопрос", deps=_deps_with_rag(stub))
 
-    assert stub.asked_namespace == "personal"  # Колобок ищет в personal
+    assert stub.asked_namespace == "personal"  # Assistant ищет в personal
     assert "моя заметка про Python" in captured["tool_result"]
     assert result.output == "готово"

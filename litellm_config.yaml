@@ -37,14 +37,14 @@ model_list:
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
       extra_body:
-        enable_thinking: true # дефолт для Кощея — глубокое reasoning
+        enable_thinking: true # дефолт для recon — глубокое reasoning
   - model_name: glm-5.1-fast
     litellm_params:
       model: openai/glm-5.1
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
       extra_body:
-        enable_thinking: false # без thinking — быстрее, дешевле (Левша-план)
+        enable_thinking: false # без thinking — быстрее, дешевле (coder-план)
   - model_name: deepseek-v3
     litellm_params:
       # На dashscope-intl актуальный id — deepseek-v3.2 (v3/v3.1/r1 дают 404).
@@ -64,10 +64,6 @@ model_list:
   - model_name: nemotron-super-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
-      api_key: os.environ/OPENROUTER_API_KEY
-  - model_name: nemotron-ultra-free
-    litellm_params:
-      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       api_key: os.environ/OPENROUTER_API_KEY
   - model_name: owl-alpha-free
     litellm_params:

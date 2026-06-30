@@ -1,11 +1,10 @@
-"""🍞 Колобок — General Agent.
+"""💬 Assistant — General Agent.
 
 Общий помощник: ресёрч, поиск, бытовые вопросы. Чувствительность данных PUBLIC,
-поэтому впереди стоят бесплатные модели. Цепочка моделей — из плана:
-основная `owl-alpha-free` (1M контекст), резерв `qwen-plus` → `qwen-max`.
+поэтому впереди стоят бесплатные модели: основная `owl-alpha-free` (1M контекст),
+резерв `qwen-plus` → `qwen-max`.
 
-Инструменты Этапа 2: web_search и простая память (scratchpad-заметки).
-RAG (`search_knowledge_base`) подключится на Этапе 3.
+Инструменты: web_search, scratchpad-память, RAG (`search_knowledge_base`).
 """
 
 from __future__ import annotations
@@ -22,11 +21,11 @@ from .base import (
     load_prompt,
 )
 
-NAME = "kolobok"
-TITLE = "🍞 Колобок"
+NAME = "assistant"
+TITLE = "💬 Assistant"
 SENSITIVITY = DataSensitivity.PUBLIC
 
-# Цепочка LiteLLM: основная + fallback'и (см. план, финальная раскладка Колобка).
+# Цепочка LiteLLM: основная + fallback'и.
 MODELS = ["owl-alpha-free", "qwen-plus", "qwen-max"]
 
 agent = Agent(

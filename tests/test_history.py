@@ -78,12 +78,12 @@ async def test_keeps_last_message_even_if_huge(monkeypatch):
 
 
 def test_agents_have_history_capability():
-    from src.orchestrator.agents import kolobok, koschei, levsha
+    from src.orchestrator.agents import assistant, coder, recon
 
     def has_compact(agent) -> bool:
         rc = agent.root_capability
         caps = getattr(rc, "capabilities", [rc])
         return any(getattr(c, "processor", None) is compact_history for c in caps)
 
-    for mod in (kolobok, koschei, levsha):
+    for mod in (assistant, recon, coder):
         assert has_compact(mod.agent), f"{mod.NAME} без ProcessHistory"

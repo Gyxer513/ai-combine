@@ -56,11 +56,11 @@ def test_history_trim_persists(tmp_path):
 def test_metrics_survive_new_instance(tmp_path):
     db_file = str(tmp_path / "m.db")
     m1 = Metrics(Database(db_file))
-    m1.record("koschei", 100, 50)
-    m1.record("koschei", 10, 5)
+    m1.record("recon", 100, 50)
+    m1.record("recon", 10, 5)
 
     m2 = Metrics(Database(db_file))  # «рестарт»
-    a = m2.for_agent("koschei")
+    a = m2.for_agent("recon")
     assert a.requests == 2
     assert a.input_tokens == 110
     assert a.output_tokens == 55

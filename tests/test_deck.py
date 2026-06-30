@@ -11,19 +11,19 @@ from src.deck_worker.main import agent_for_card, card_prompt, process_card
 
 
 def test_agent_for_card_by_label():
-    mapping = {"sec": "koschei", "code": "levsha", "ask": "kolobok"}
+    mapping = {"sec": "recon", "code": "coder", "ask": "assistant"}
     card = {"labels": [{"title": "code"}]}
-    assert agent_for_card(card, mapping, "kolobok") == "levsha"
+    assert agent_for_card(card, mapping, "assistant") == "coder"
 
 
 def test_agent_for_card_label_case_insensitive():
     card = {"labels": [{"title": "SEC"}]}
-    assert agent_for_card(card, {"sec": "koschei"}, "kolobok") == "koschei"
+    assert agent_for_card(card, {"sec": "recon"}, "assistant") == "recon"
 
 
 def test_agent_for_card_default_when_no_label():
-    assert agent_for_card({"labels": []}, {"sec": "koschei"}, "kolobok") == "kolobok"
-    assert agent_for_card({}, {"sec": "koschei"}, "kolobok") == "kolobok"
+    assert agent_for_card({"labels": []}, {"sec": "recon"}, "assistant") == "assistant"
+    assert agent_for_card({}, {"sec": "recon"}, "assistant") == "assistant"
 
 
 def test_card_prompt_joins_title_and_description():
@@ -82,8 +82,8 @@ async def _process(deck, orch, card, *, failed_id=57):
     await process_card(
         deck, orch, card,
         board_id=22, doing_id=55, done_id=56, failed_id=failed_id,
-        mapping={"sec": "koschei", "code": "levsha", "ask": "kolobok"},
-        default="kolobok",
+        mapping={"sec": "recon", "code": "coder", "ask": "assistant"},
+        default="assistant",
     )
 
 
@@ -93,7 +93,7 @@ async def test_process_card_happy_path():
     # claim в In Progress (55), затем перенос в Done (56)
     assert deck.moves == [(98, 55), (98, 56)]
     # агент выбран по метке, conversation_id привязан к карточке
-    assert orch.calls[0][1] == "kolobok"
+    assert orch.calls[0][1] == "assistant"
     assert orch.calls[0][2] == "deck:98"
     # результат в комментарии
     assert "Токио" in deck.comments[0][1]

@@ -1,11 +1,10 @@
-"""🔨 Левша — Coder Agent.
+"""🔨 Coder — Coder Agent.
 
 Работа с репозиториями: чтение кода, написание, ревью. Чувствительность INTERNAL
-(приватный код не уходит в cloaked-модели). По плану модели маршрутизируются по
-подзадаче (planner/coder/reviewer); на Этапе 2 берём кодовую модель Alibaba.
+(приватный код не уходит в cloaked-модели). Модель: nemotron-super-free (топ
+SWE-Bench free), резерв qwen-coder → qwen-max.
 
-Этап 2: общие инструменты (web_search, память). Gitea (RW) и sandboxed bash
-для тестов/линтеров — Этап 6.
+Инструменты: GitHub (RW) и sandboxed bash (тесты/линтеры, без сети).
 """
 
 from __future__ import annotations
@@ -25,18 +24,18 @@ from .base import (
     load_prompt,
 )
 
-NAME = "levsha"
-TITLE = "🔨 Левша"
+NAME = "coder"
+TITLE = "🔨 Coder"
 SENSITIVITY = DataSensitivity.INTERNAL
 
-# План (Левша-code): nemotron-super-free (топ SWE-Bench free), резерв qwen-coder → qwen-max.
+# nemotron-super-free (топ SWE-Bench free), резерв qwen-coder → qwen-max.
 # INTERNAL: приватный код — open weights / Alibaba, без cloaked owl.
 MODELS = ["nemotron-super-free", "qwen-coder", "qwen-max"]
 
 agent = Agent(
     build_model(MODELS),
     deps_type=AgentDeps,
-    instructions=load_prompt(NAME),  # см. пояснение в kolobok.py
+    instructions=load_prompt(NAME),  # см. пояснение в assistant.py
     name=NAME,
     capabilities=history_capabilities(),  # ужимание истории по токен-бюджету
 )

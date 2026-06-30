@@ -1,0 +1,50 @@
+site_name: AI Combine
+site_description: Self-hosted мульти-агентный комбайн на дешёвых LLM
+repo_url: https://github.com/Gyxer513/ai-combine
+repo_name: Gyxer513/ai-combine
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: ru
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Светлая тема
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Тёмная тема
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Обзор: index.md
+  - Быстрый старт: quickstart.md
+  - Агенты: agents.md
+  - Архитектура: architecture.md
+  - Безопасность: security.md

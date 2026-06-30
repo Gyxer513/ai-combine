@@ -69,13 +69,13 @@ class Settings(BaseSettings):
 
     # --- Telegram (Этап 5) ---
     # Один бот на агента: каждый бот жёстко привязан к агенту по своему токену.
-    # telegram_bot_token (общий) → Колобок по умолчанию (обратная совместимость);
-    # отдельные боты Кощея/Левши создаются в @BotFather, токены — ниже.
+    # telegram_bot_token (общий) → assistant по умолчанию (обратная совместимость);
+    # отдельные боты создаются в @BotFather, токены — ниже.
     telegram_bot_token: str = Field(default="")
-    telegram_bot_token_kolobok: str = Field(default="")
-    telegram_bot_token_koschei: str = Field(default="")
-    telegram_bot_token_levsha: str = Field(default="")
-    telegram_bot_token_ded: str = Field(default="")
+    telegram_bot_token_assistant: str = Field(default="")
+    telegram_bot_token_recon: str = Field(default="")
+    telegram_bot_token_coder: str = Field(default="")
+    telegram_bot_token_planner: str = Field(default="")
     telegram_allowed_users: str = Field(default="")
     # Fail-closed: при пустом whitelist по умолчанию НИКОГО не пускаем (id отказанных
     # пишутся в лог — узнать свой и добавить). Открытый bootstrap-режим (пускать
@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     telegram_allow_bootstrap: bool = Field(default=False)
     # Куда бот ходит за ответами агентов (в docker — имя сервиса).
     orchestrator_url: str = Field(default="http://orchestrator:8000")
-    # Сколько бот ждёт ответ агента (секунд). Кощей с серией сканов может работать
+    # Сколько бот ждёт ответ агента (секунд). recon с серией сканов может работать
     # несколько минут — короткий таймаут даёт ложное «оркестратор недоступен».
     telegram_reply_timeout_sec: int = Field(default=600)
 
@@ -102,12 +102,12 @@ class Settings(BaseSettings):
     # In Progress (видно, что зависла), а не уезжает в Done.
     deck_failed_stack: str = Field(default="Failed")
     # Метка карточки -> агент (CSV "label:agent"). Без метки -> deck_default_agent.
-    deck_label_agent_map: str = Field(default="sec:koschei,code:levsha,ask:kolobok")
-    deck_default_agent: str = Field(default="kolobok")
+    deck_label_agent_map: str = Field(default="sec:recon,code:coder,ask:assistant")
+    deck_default_agent: str = Field(default="assistant")
     # Интервал опроса доски в минутах: >0 — цикл, 0 — один проход.
     deck_poll_interval_min: int = Field(default=0)
 
-    # --- Research-worker (Колобок: регулярный ресёрч заработка) ---
+    # --- Research-worker (assistant: регулярный ресёрч заработка) ---
     # Token-bounded: детерминированный поиск + ОДИН дешёвый LLM-вызов на прогон.
     research_board: str = Field(default="Идеи")
     research_stack: str = Field(default="Новые")  # стек для новых карточек-идей
@@ -125,22 +125,12 @@ class Settings(BaseSettings):
         )
     )
 
-    # --- Chronicle-worker (ДЕД: летопись) ---
-    chronicle_note: str = Field(default="Летопись AI Combine")
-    chronicle_note_category: str = Field(default="AI Projects")
-    # Разовая летопись — на жирной nemotron-ultra (качество нарратива важнее скорости;
-    # прямой вызов, не через интерактивного ДЕДа, у которого модель быстрая).
-    chronicle_model: str = Field(default="nemotron-ultra-free")
-    chronicle_max_tokens: int = Field(default=900)
-    chronicle_lookback_hours: int = Field(default=24)  # окно «дня» для сбора активности
-    chronicle_interval_min: int = Field(default=0)  # 0 — один проход; 1440 — раз в день
-
     # --- Gitea (Этап 6) ---
     gitea_url: str = Field(default="")
     gitea_token: str = Field(default="")
 
-    # --- GitHub (Левша: репозитории; перемычка для хоумлаба) ---
-    # Левша на хоумлабе пушит в GitHub (рабочий GitLab за VPN недоступен надёжно),
+    # --- GitHub (coder: репозитории; перемычка для хоумлаба) ---
+    # coder на хоумлабе пушит в GitHub (рабочий GitLab за VPN недоступен надёжно),
     # синхронизация GitHub↔GitLab — вручную человеком. PAT scoped на репозиторий.
     github_api_url: str = Field(default="https://api.github.com")
     github_token: str = Field(default="")
@@ -169,7 +159,7 @@ class Settings(BaseSettings):
 
     @property
     def deck_label_agents(self) -> dict[str, str]:
-        """'sec:koschei,code:levsha' -> {'sec': 'koschei', ...} (метка в нижнем регистре)."""
+        """'sec:recon,code:coder' -> {'sec': 'recon', ...} (метка в нижнем регистре)."""
         out: dict[str, str] = {}
         for pair in self.deck_label_agent_map.split(","):
             label, _, agent = pair.partition(":")
@@ -186,19 +176,19 @@ class Settings(BaseSettings):
     def agent_bot_tokens(self) -> dict[str, str]:
         """{agent_name: bot_token} для агентов с заданным токеном.
 
-        Колобок берёт telegram_bot_token_kolobok или общий telegram_bot_token.
+        assistant берёт telegram_bot_token_assistant или общий telegram_bot_token.
         Поллятся только агенты с непустым токеном — можно поднять и одного бота.
         """
         out: dict[str, str] = {}
-        kolobok = self.telegram_bot_token_kolobok or self.telegram_bot_token
-        if kolobok:
-            out["kolobok"] = kolobok
-        if self.telegram_bot_token_koschei:
-            out["koschei"] = self.telegram_bot_token_koschei
-        if self.telegram_bot_token_levsha:
-            out["levsha"] = self.telegram_bot_token_levsha
-        if self.telegram_bot_token_ded:
-            out["ded"] = self.telegram_bot_token_ded
+        assistant = self.telegram_bot_token_assistant or self.telegram_bot_token
+        if assistant:
+            out["assistant"] = assistant
+        if self.telegram_bot_token_recon:
+            out["recon"] = self.telegram_bot_token_recon
+        if self.telegram_bot_token_coder:
+            out["coder"] = self.telegram_bot_token_coder
+        if self.telegram_bot_token_planner:
+            out["planner"] = self.telegram_bot_token_planner
         return out
 
     @property

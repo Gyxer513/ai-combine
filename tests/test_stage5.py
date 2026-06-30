@@ -45,34 +45,34 @@ async def test_whitelist_empty_bootstrap_allows():
 
 
 def test_agent_bot_tokens_mapping():
-    # общий токен -> Колобок; отдельные -> свои агенты; пустые не попадают.
+    # общий токен -> Assistant; отдельные -> свои агенты; пустые не попадают.
     # _env_file=None: не подтягивать реальный .env разработчика.
     s = Settings(
         _env_file=None,
         telegram_bot_token="A",
-        telegram_bot_token_koschei="B",
-        telegram_bot_token_levsha="",
+        telegram_bot_token_recon="B",
+        telegram_bot_token_coder="",
     )
-    assert s.agent_bot_tokens == {"kolobok": "A", "koschei": "B"}
+    assert s.agent_bot_tokens == {"assistant": "A", "recon": "B"}
 
 
-def test_agent_bot_token_kolobok_overrides_common():
+def test_agent_bot_token_assistant_overrides_common():
     s = Settings(
-        _env_file=None, telegram_bot_token="common", telegram_bot_token_kolobok="explicit"
+        _env_file=None, telegram_bot_token="common", telegram_bot_token_assistant="explicit"
     )
-    assert s.agent_bot_tokens["kolobok"] == "explicit"
+    assert s.agent_bot_tokens["assistant"] == "explicit"
 
 
 def test_conversation_id_changes_after_reset():
     handlers._sessions.clear()
-    cid1 = handlers._conversation_id("koschei", 42)
-    handlers._sessions[("koschei", 42)] = 1  # эмулируем /reset
-    cid2 = handlers._conversation_id("koschei", 42)
+    cid1 = handlers._conversation_id("recon", 42)
+    handlers._sessions[("recon", 42)] = 1  # эмулируем /reset
+    cid2 = handlers._conversation_id("recon", 42)
     assert cid1 != cid2
-    assert cid1.startswith("tg:koschei:42:")
+    assert cid1.startswith("tg:recon:42:")
 
 
 def test_conversation_id_isolated_per_agent():
     handlers._sessions.clear()
     # один и тот же chat_id у разных ботов -> разные диалоги
-    assert handlers._conversation_id("kolobok", 7) != handlers._conversation_id("levsha", 7)
+    assert handlers._conversation_id("assistant", 7) != handlers._conversation_id("coder", 7)

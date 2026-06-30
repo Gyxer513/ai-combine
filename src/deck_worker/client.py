@@ -91,6 +91,19 @@ class DeckClient:
         resp.raise_for_status()
         return _unwrap(resp.json())
 
+    async def assign_label(
+        self, board_id: int, stack_id: int, card_id: int, label_id: int
+    ) -> None:
+        """Навесить метку на карточку (Deck assignLabel)."""
+        resp = await self._http.put(
+            f"{self._base}{_API}/boards/{board_id}/stacks/{stack_id}/cards/{card_id}/assignLabel",
+            json={"labelId": label_id},
+            auth=self._auth,
+            headers=self._headers,
+            timeout=30,
+        )
+        resp.raise_for_status()
+
     async def move_card(
         self, board_id: int, card_id: int, target_stack_id: int, *, order: int = 0
     ) -> None:

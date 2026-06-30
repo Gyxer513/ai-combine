@@ -1,12 +1,10 @@
-"""🦴 Кощей — SecOps Agent.
+"""🛡 Recon — SecOps Agent.
 
 Обучение ИБ, threat modeling, defensive coding, hardening собственной инфры.
 Чувствительность данных SECRET — только enterprise/платные модели, никаких
-cloaked. Основная модель по плану — `glm-5.1` (MaaS workspace, thinking on),
-резерв `qwen-max`.
+cloaked. Основная модель — `glm-5.1` (MaaS workspace, thinking on), резерв `qwen-max`.
 
-Этап 2: общие инструменты (web_search, память). RAG namespace `security`
-(Этап 3) и sandboxed bash (Этап 6) добавятся позже.
+RAG namespace `security`; security-команды — в изолированном sandbox-broker.
 """
 
 from __future__ import annotations
@@ -25,18 +23,18 @@ from .base import (
     load_prompt,
 )
 
-NAME = "koschei"
-TITLE = "🦴 Кощей"
+NAME = "recon"
+TITLE = "🛡 Recon"
 SENSITIVITY = DataSensitivity.SECRET
 
-# План (Кощей): glm-5.1 (thinking) основной, резерв nemotron-super-free (open weights) → qwen-max.
+# glm-5.1 (thinking) основной, резерв nemotron-super-free (open weights) → qwen-max.
 # SECRET: никаких cloaked-моделей — owl-alpha исключён.
 MODELS = ["glm-5.1", "nemotron-super-free", "qwen-max"]
 
 agent = Agent(
     build_model(MODELS),
     deps_type=AgentDeps,
-    instructions=load_prompt(NAME),  # см. пояснение в kolobok.py
+    instructions=load_prompt(NAME),  # см. пояснение в assistant.py
     name=NAME,
     capabilities=history_capabilities(),  # ужимание истории по токен-бюджету
 )
