@@ -1,339 +1,284 @@
 # AI Combine 🌾
 
-Self-hosted мульти-агентный «комбайн» на дешёвых LLM (китайские модели + free-tier
-OpenRouter за единым LiteLLM-прокси). Четыре агента с характером, доступ через
-OpenWebUI и Telegram, RAG по своей базе знаний, изолированное исполнение команд,
-автономные воркеры по расписанию.
+🌐 **English** · [Русский](README.ru.md)
+
+A self-hosted multi-agent "combine" built on cheap LLMs (Chinese models + OpenRouter
+free tiers behind a single LiteLLM proxy). Four agents reachable via OpenWebUI and
+Telegram, RAG over your own knowledge base, isolated command execution, and scheduled
+autonomous workers.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-gh--pages-teal.svg)](https://gyxer513.github.io/ai-combine/)
 
-> ⚠️ **Личный проект, опубликован «как есть».** Запускайте **только на своей
-> инфраструктуре**. Агенты исполняют команды и обращаются к вашей инфре — перед
-> использованием прочитайте [SECURITY.md](SECURITY.md). Без гарантий ([MIT](LICENSE)).
+> ⚠️ **Personal project, published as-is.** Run it **only on your own infrastructure
+> and against your own targets**. The agents execute commands and reach into your infra
+> on your behalf — read [SECURITY.md](SECURITY.md) before using. No warranty ([MIT](LICENSE)).
 
-## Агенты
+📖 Full documentation: **https://gyxer513.github.io/ai-combine/**
 
-| Агент | Роль | Назначение |
+## Agents
+
+| Agent | Role | What it does |
 |---|---|---|
-| 🛡 **recon** | SecOps | ИБ, скан/хардненинг своей инфры (nmap/nuclei/nikto/testssl/httpx в sandbox) |
-| 🔨 **coder** | Coder | Код: чтение/написание/ревью, прогон тестов в sandbox, GitHub |
-| 💬 **assistant** | General | Общие вопросы, поиск, ресёрч |
-| 🧭 **planner** | Orchestrator | Режет ТЗ проекта на дочерние задачи для агентов (карточки на Deck) |
+| 🛡 **recon** | SecOps | scanning/hardening your own infra (nmap/nuclei/nikto/testssl/httpx in a sandbox) |
+| 🔨 **coder** | Coder | read/write/review code, run tests in a sandbox, GitHub |
+| 💬 **assistant** | General | general questions, search, research |
+| 🧭 **planner** | Orchestrator | slices a project brief into child tasks for the agents (Deck cards) |
 
-## Возможности
+## Features
 
-- **Мульти-агент** на Pydantic AI: персона (`instructions=`), пер-агентные
-  fallback-цепочки моделей (`FallbackModel`), ужимание истории по токен-бюджету,
-  персист истории/метрик на SQLite.
-- **LLM-роутинг** через LiteLLM (Alibaba Model Studio + OpenRouter) одним ключом.
-- **RAG** по Nextcloud (Notes + WebDAV) → Qdrant; embeddings **через API**
-  (без локальных тяжёлых моделей — бережём RAM).
-- **Фронтенды**: OpenWebUI (агенты как «модели») + Telegram (бот на агента, whitelist).
-- **Sandbox**: изолированное исполнение через привилегированный `sandbox-broker`
-  (docker.sock только у него), allowlist бинарей, hardening, защита от инъекций.
-- **Автономия**: воркеры по расписанию — задачи из Nextcloud Deck, ресёрч идей
-  заработка; планировщик режет проект на задачи для остальных агентов.
+- **Multi-agent** on Pydantic AI: persona via `instructions=`, per-agent model
+  fallback chains (`FallbackModel`), token-budget history compaction, history/metrics
+  persisted on SQLite.
+- **LLM routing** through LiteLLM (Alibaba Model Studio + OpenRouter) with one key.
+- **RAG** over Nextcloud (Notes + WebDAV) → Qdrant; embeddings **via API** (no heavy
+  local models — saves RAM).
+- **Frontends**: OpenWebUI (agents as "models") + Telegram (one bot per agent, whitelist).
+- **Sandbox**: isolated execution via a privileged `sandbox-broker` (it alone holds
+  `docker.sock`), binary allowlist, hardening, injection defenses.
+- **Autonomy**: scheduled workers — tasks from Nextcloud Deck, money-making idea
+  research; the planner slices a project into tasks for the other agents.
 
-## Стек
+## Stack
 
 Python 3.11+ · Pydantic AI · FastAPI · LiteLLM · Qdrant · SearXNG · aiogram 3 ·
-OpenWebUI · Docker. LLM и embeddings — через API (без локальных тяжёлых моделей).
+OpenWebUI · Docker. LLMs and embeddings go through APIs (no heavy local models).
 
-## Сервисы (docker-compose)
+## Services (docker-compose)
 
-| Сервис | Профиль | Описание |
+| Service | Profile | Description |
 |---|---|---|
-| `litellm` | (база) | LLM-прокси, OpenAI-совместимый API над Alibaba + OpenRouter |
-| `qdrant` | (база) | векторное хранилище RAG |
-| `searxng` | (база) | self-hosted метапоиск для `web_search` |
-| `openwebui` | (база) | веб-чат (:3000) |
-| `orchestrator` | `app` | FastAPI + Pydantic AI, 4 агента, дашборд `/dashboard` (:8000) |
-| `sandbox-broker` | `app` | **единственный с `docker.sock`** — порождает sandbox'ы |
-| `rag-indexer` | `app` | Nextcloud → Qdrant (цикл) |
-| `research-worker` | `app` | assistant ищет идеи заработка → Deck-доска «Идеи» |
-| `deck-worker` | `app` | задачи из Nextcloud Deck → агенты |
-| `telegram-bot` | `telegram` | боты агентов (по одному на агента) |
+| `litellm` | (base) | LLM proxy, OpenAI-compatible API over Alibaba + OpenRouter |
+| `qdrant` | (base) | RAG vector store |
+| `searxng` | (base) | self-hosted metasearch for `web_search` |
+| `openwebui` | (base) | web chat (:3000) |
+| `orchestrator` | `app` | FastAPI + Pydantic AI, 4 agents, dashboard `/dashboard` (:8000) |
+| `sandbox-broker` | `app` | **the only holder of `docker.sock`** — spawns sandboxes |
+| `rag-indexer` | `app` | Nextcloud → Qdrant (loop) |
+| `research-worker` | `app` | assistant researches money-making ideas → Deck board "Ideas" |
+| `deck-worker` | `app` | tasks from Nextcloud Deck → agents |
+| `telegram-bot` | `telegram` | agent bots (one per agent) |
 
-## Быстрый старт (Этап 1)
+## Quickstart
 
 ```bash
-# 1. Конфиг
+# 1. Config
 cp .env.example .env
-#   заполни ALIBABA_API_KEY, ALIBABA_WORKSPACE_ID, OPENROUTER_API_KEY, LITELLM_MASTER_KEY
+#   fill ALIBABA_API_KEY / OPENROUTER_API_KEY / LITELLM_MASTER_KEY
+#   generate a token: openssl rand -hex 32   -> ORCHESTRATOR_API_TOKEN
 
-# 2. Поднять инфру (litellm + qdrant + searxng + openwebui)
-docker compose up -d litellm qdrant searxng openwebui
+# 2. Base infra
+docker compose up -d                       # litellm + qdrant + searxng + openwebui
 
-# 3. Проверить роутинг LiteLLM
-curl http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY"
+# 3. Application (orchestrator + sandbox-broker + workers)
+docker compose --profile app up -d
 
-# 4. Открыть чат
-#    http://localhost:3000  — выбрать модель qwen-plus и проверить ответ
+# 4. Telegram bots (if tokens are set)
+docker compose --profile telegram up -d
 ```
 
-## Этап 2: оркестратор и три агента
+Check the proxy and an agent:
 
-Поднят FastAPI-оркестратор на Pydantic AI со всеми четырьмя агентами. Каждый —
-отдельная «модель» в OpenWebUI; переключение = выбор модели.
+```bash
+curl http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY"
 
-| Агент | Модель (основная → fallback) | Чувствительность |
+curl -s http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ORCHESTRATOR_API_TOKEN" \
+  -d '{"message": "Who are you?", "agent": "recon"}'
+```
+
+> ⚠️ **Orchestrator access.** The port is bound to `127.0.0.1:8000` (localhost only) —
+> the agents hold a GitHub PAT / RAG / sandbox access and must not be exposed. Set
+> `ORCHESTRATOR_API_TOKEN` (e.g. `openssl rand -hex 32`); the Telegram bots and workers
+> pick up the same token. Empty = enforcement off (localhost bind only); the
+> orchestrator warns in the logs. For LAN access, put a reverse proxy with TLS+auth
+> in front.
+
+## Models per agent
+
+| Agent | Model (primary → fallback) | Sensitivity |
 |---|---|---|
 | 💬 `assistant` | `owl-alpha-free` → qwen-plus → qwen-max | public |
 | 🛡 `recon` | `glm-5.1` (thinking) → nemotron-super-free → qwen-max | secret |
 | 🔨 `coder` | `nemotron-super-free` → qwen-coder → qwen-max | internal |
 | 🧭 `planner` | `qwen-max` → qwen-plus | internal |
 
-Инструменты (Этап 2): `web_search` (SearXNG → fallback DuckDuckGo) и простая память
-(scratchpad-заметки + многоходовой диалог по `conversation_id`). Пер-агентные
-fallback-цепочки собраны через Pydantic AI `FallbackModel` (не через LiteLLM —
-там fallbacks ключуются по реальным model_name, а не по именам агентов).
+Per-agent fallback chains are assembled via Pydantic AI `FallbackModel`. Model choice is
+tied to `DataSensitivity` — sensitive data never goes to cloaked models. Personas are set
+via `instructions=` (not `system_prompt=`), so they apply on every turn including the
+multi-turn `/chat` and OpenWebUI paths.
 
-Персона задаётся через `instructions=` (не `system_prompt=`): только так она
-применяется на каждом запуске, включая многоходовой диалог и путь OpenWebUI.
+## OpenWebUI
 
-```bash
-docker compose --profile app up -d        # orchestrator на :8000
-```
+Admin Panel → Settings → Connections → OpenAI API → ＋:
 
-Эндпоинты оркестратора:
+- **Base URL:** `http://orchestrator:8000/v1` (same compose network) or
+  `http://host.docker.internal:8000/v1`.
+- **API key:** the value of `ORCHESTRATOR_API_TOKEN` (the orchestrator checks it on
+  `/chat`, `/agents`, `/v1/*`).
 
-| Метод | Путь | Назначение |
-|---|---|---|
-| `GET` | `/health`, `/health/litellm` | проверки |
-| `GET` | `/agents` | список агентов |
-| `POST` | `/chat` | нативный чат: `{message, agent?, conversation_id?}` |
-| `GET` | `/v1/models` | OpenAI-совместимый список (по «модели» на агента) |
-| `POST` | `/v1/chat/completions` | OpenAI-совместимый чат (stream + non-stream) |
+The model dropdown will show `assistant` / `recon` / `coder` / `planner`. Direct LiteLLM
+models (`glm-5.1`, `qwen-*`) are a separate connection to `http://litellm:4000/v1` and
+have **no** persona/tools.
 
-Быстрая проверка (агент выбирается полем `agent`):
+## RAG (knowledge base from Nextcloud)
 
-```bash
-curl -s http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Кто ты?", "agent": "recon"}'
-```
+Agents search a personal knowledge base via `search_knowledge_base`. Embeddings go
+**through the API** (Alibaba `text-embedding-v4` behind LiteLLM, dim 1024), no local
+TEI/BGE-M3. Vectors live in Qdrant, one collection per namespace.
 
-**Агенты в OpenWebUI:** Admin Panel → Settings → Connections → OpenAI API → ＋,
-base URL `http://host.docker.internal:8000/v1` (или `http://orchestrator:8000/v1`,
-если OpenWebUI в той же compose-сети), **ключ = `ORCHESTRATOR_API_TOKEN`** (если задан;
-оркестратор проверяет его на `/chat`, `/agents`, `/v1/*`). В выпадашке моделей появятся
-`assistant` / `recon` / `coder` / `planner`. Прямые модели LiteLLM (`glm-5.1`, `qwen-*`) — это
-отдельное подключение к `http://litellm:4000/v1`, у них **нет** персоны/инструментов.
+- Sources: Nextcloud **Notes** (category → namespace) and **WebDAV folders**.
+- Namespace per agent: assistant/planner → `personal`, recon → `security`, coder → `coding`.
+- The indexer is incremental: `data/rag_manifest.json` stores hashes, unchanged docs
+  aren't re-embedded.
 
-> **Доступ к оркестратору.** Порт забинден на `127.0.0.1:8000` (только localhost) — у
-> агентов есть GitHub PAT / RAG / sandbox, наружу публиковать нельзя. Задай
-> `ORCHESTRATOR_API_TOKEN` (напр. `openssl rand -hex 32`) — тот же токен подхватывают
-> Telegram-боты и воркеры. Пусто = enforcement выключен (только bind localhost),
-> оркестратор предупредит в логах. Для LAN — обратный прокси с TLS+auth.
-
-## Этап 3: RAG (база знаний из Nextcloud)
-
-Агенты ищут по личной базе знаний через `search_knowledge_base`. Embeddings —
-**через API** (Alibaba `text-embedding-v4` за LiteLLM, dim 1024), без локального
-TEI/BGE-M3 — бережём RAM. Вектора в Qdrant, по коллекции на namespace.
-
-- Источники: Nextcloud **Notes** (категория → namespace) и **WebDAV-папки**.
-- Namespace на агента: assistant/planner→`personal`, recon→`security`, coder→`coding`.
-- Индексатор инкрементальный: манифест `data/rag_manifest.json` хранит хэши,
-  неизменённые документы не переэмбеддятся.
-
-Заполни в `.env`: `NEXTCLOUD_URL`, `NEXTCLOUD_USER`, `NEXTCLOUD_APP_PASSWORD`
-(пароль приложения из Настройки → Безопасность). Маппинг категорий Notes —
-`RAG_NOTES_CATEGORY_MAP="Security:security, Dev:coding"`; папок WebDAV —
+Set in `.env`: `NEXTCLOUD_URL`, `NEXTCLOUD_USER`, `NEXTCLOUD_APP_PASSWORD` (an app
+password from Settings → Security). Notes category mapping —
+`RAG_NOTES_CATEGORY_MAP="Security:security, Dev:coding"`; WebDAV folders —
 `RAG_WEBDAV_FOLDERS="/Knowledge/Security:security"`.
 
 ```bash
-# Индексация (профиль indexer в Docker или напрямую):
-docker compose --profile indexer run --rm rag-indexer
-# либо на хосте:
-LITELLM_BASE_URL=http://localhost:4000/v1 QDRANT_URL=http://localhost:6333 \
-  uv run python -m src.rag_indexer.main
+docker compose --profile app up -d   # rag-indexer loops every RAG_INDEX_INTERVAL_MIN (default 60)
+docker compose run --rm -e RAG_INDEX_INTERVAL_MIN=0 rag-indexer   # one-off run
 ```
 
-## Этап 5: Telegram-бот
+## Telegram
 
-Бот на aiogram 3 — мост к оркестратору (сам LLM не зовёт). Доступ по whitelist.
+An aiogram 3 bot — a bridge to the orchestrator (it doesn't call the LLM itself).
+Access is whitelisted.
 
-**Один бот на агента** — каждый бот жёстко привязан к своему агенту, переключения
-нет (бот *и есть* агент). Один процесс поллит все заданные токены и выбирает агента
-по `message.bot.token`.
+**One bot per agent** — each bot is hard-bound to its agent, no switching (the bot *is*
+the agent). One process polls all configured tokens and picks the agent by
+`message.bot.token`.
 
-- Команды: `/who` — кто этот бот; `/reset` — забыть историю; `/start` `/help`.
-- Обычный текст уходит агенту этого бота; история по `tg:<agent>:<chat_id>:<session>`.
+- Commands: `/who` — which bot is this; `/reset` — forget history; `/start` `/help`.
+- Plain text goes to that bot's agent; history keyed by `tg:<agent>:<chat_id>:<session>`.
 
-В `.env`:
-- `TELEGRAM_BOT_TOKEN` — общий, идёт assistant (или явный `TELEGRAM_BOT_TOKEN_KOLOBOK`);
-- `TELEGRAM_BOT_TOKEN_KOSCHEI`, `TELEGRAM_BOT_TOKEN_LEVSHA` — отдельные боты
-  (создать в @BotFather). Поллятся только заданные — можно начать с одного.
-- `TELEGRAM_ALLOWED_USERS` — числовые user_id через запятую (узнать у @userinfobot),
-  общий для всех ботов. Пустой = fail-closed (никого; id отказанных пишутся в лог).
+In `.env`:
+- `TELEGRAM_BOT_TOKEN` — shared, goes to assistant (or explicit `TELEGRAM_BOT_TOKEN_ASSISTANT`);
+- `TELEGRAM_BOT_TOKEN_RECON` / `_CODER` / `_PLANNER` — separate bots (create in @BotFather).
+  Only configured tokens are polled — you can start with a single bot.
+- `TELEGRAM_ALLOWED_USERS` — numeric user IDs, comma-separated (find yours via
+  @userinfobot). Empty = fail-closed (nobody; denied IDs are logged).
 
-```bash
-docker compose --profile telegram up -d
-# либо на хосте (оркестратор на localhost):
-ORCHESTRATOR_URL=http://localhost:8010 uv run python -m src.telegram_bot.main
-```
+## Autonomy: deck-worker (tasks from Nextcloud Deck)
 
-## Всё в Docker (durable, always-on)
+`deck-worker` runs tasks **without a human in the loop**: it polls a Nextcloud Deck
+board, takes cards from To Do, routes by label to the right agent, runs it through the
+orchestrator, posts the result as a comment, and moves the card to Done. Claiming (a
+move to In Progress) protects against double processing.
 
-Чтобы система пережила перезагрузку и база знаний оставалась свежей — запускай
-оркестратор, бота и автоиндексатор в Docker (у всех `restart: unless-stopped`):
+- Board (`DECK_BOARD`), stacks `To Do` / `In Progress` / `Done`.
+- Label → agent: `DECK_LABEL_AGENT_MAP="sec:recon,code:coder,ask:assistant"`, no label →
+  `DECK_DEFAULT_AGENT` (assistant). A failed task → `DECK_FAILED_STACK` (default
+  "Failed"), **not** Done; if that stack is missing, the card stays in In Progress.
+- Polls every `DECK_POLL_INTERVAL_MIN`.
 
-```bash
-docker compose up -d                              # инфра: litellm, qdrant, searxng, openwebui
-docker compose --profile app up -d                # orchestrator (:8000) + авто-RAG-индексатор
-docker compose --profile telegram up -d           # telegram-бот
-```
+## Autonomy: research-worker
 
-- Авто-индексация: `rag-indexer` крутится циклом каждые `RAG_INDEX_INTERVAL_MIN`
-  минут (дефолт 60). Разовый прогон: `docker compose run --rm -e RAG_INDEX_INTERVAL_MIN=0 rag-indexer`.
-- В Docker оркестратор доступен сервисам по имени `orchestrator:8000` — в OpenWebUI
-  укажи подключение `http://orchestrator:8000/v1` (не `host.docker.internal`).
-- localhost-оверрайды (`LITELLM_BASE_URL=...localhost...`) нужны ТОЛЬКО при запуске
-  на хосте; в Docker дефолты (имена сервисов) работают сами.
+assistant regularly looks for money-making ideas and drops them as cards onto the Deck
+board "Ideas". **Token-bounded by design:** not an agentic loop but a deterministic
+pipeline per run — rotate the theme (by date) → N SearXNG searches (0 tokens) → **one**
+cheap LLM call (`qwen-flash`) deduped against existing cards → new cards.
 
-## Автономия: Deck-worker (задачи из Nextcloud Deck)
+- Rotation themes: `RESEARCH_THEMES` (CSV); ideas per run: `RESEARCH_IDEAS_PER_RUN`.
+- Period: `RESEARCH_INTERVAL_MIN` (default 1440 = once a day).
 
-`deck-worker` выполняет задачи **без участия человека**: опрашивает доску
-Nextcloud Deck, берёт карточки из To Do, роутит по метке нужному агенту,
-выполняет через оркестратор, пишет результат комментарием и двигает в Done.
-Claim переносом в In Progress защищает от повторной обработки.
+## Orchestration: 🧭 planner (project decomposition)
 
-- Доска (`DECK_BOARD`, дефолт «Задачи AI Combine»), стеки `To Do` / `In Progress`
-  / `Done`.
-- Метка → агент: `DECK_LABEL_AGENT_MAP="sec:recon,code:coder,ask:assistant"`,
-  без метки → `DECK_DEFAULT_AGENT` (assistant). Провал задачи → стек
-  `DECK_FAILED_STACK` (дефолт «Failed»), не Done.
-- Опрос каждые `DECK_POLL_INTERVAL_MIN` (в профиле `app` дефолт 2 мин).
+The `planner` agent works like a team lead: it takes a project brief or goal and slices
+it into child tasks for the other agents. It first shows the plan as text (subtask =
+executor + acceptance criterion), and on confirmation calls the `slice_project` tool,
+which lays the subtasks out as cards in the `To Do` stack (with the executor's label) —
+then `deck-worker` picks them up. Together this forms a brief → tasks → execution cascade.
 
-Нужны `NEXTCLOUD_URL` / `NEXTCLOUD_USER` / `NEXTCLOUD_APP_PASSWORD` (app password
-из Настройки → Безопасность — тот же, что для RAG-индексатора).
+- Executors: `recon` / `coder` / `assistant` (labels `sec` / `code` / `ask`).
+- Model: `qwen-max` → `qwen-plus` (decomposition needs reasoning).
+- Own Telegram bot: `TELEGRAM_BOT_TOKEN_PLANNER`.
+- Labels `sec`/`code`/`ask` must exist on the board — otherwise a card is created without
+  a label and goes to the default agent.
 
-```bash
-docker compose --profile app up -d            # deck-worker крутится циклом
-# разовый прогон:
-docker compose run --rm -e DECK_POLL_INTERVAL_MIN=0 deck-worker
-```
+## Sandbox (isolated execution)
 
-## Автономия: research-worker (ресёрч заработка)
+recon and coder run commands in a one-shot Docker container and analyze the output
+themselves (instead of asking for copy-paste):
 
-assistant регулярно ищет идеи заработка (автоматизация, AI, нестандартное) и кладёт
-их карточками на Deck-доску `Идеи`. **Token-bounded by design:** не agentic-loop, а
-детерминированный конвейер на один прогон — ротация темы (по дате) → N поисков
-SearXNG (0 токенов) → **один** дешёвый LLM-вызов (`qwen-flash`) с антидублем по уже
-существующим карточкам → новые карточки. Один LLM-вызов + потолок вывода = копейки.
+- 🛡 recon — `run_security_command` (nmap/openssl/dig/curl/nc) **with network**, for
+  scanning/hardening your own infra.
+- 🔨 coder — `run_shell` (code/tests/linters) **without network**.
 
-- Темы для ротации: `RESEARCH_THEMES` (CSV); идей за прогон — `RESEARCH_IDEAS_PER_RUN`.
-- Период: `RESEARCH_INTERVAL_MIN` (дефолт 1440 = раз в день).
+Sandbox hardening: `cap_drop ALL`, `no-new-privileges`, read-only rootfs + tmpfs `/tmp`,
+mem/cpu/pids limits, non-root (uid 10001), timeout, `--rm`. Before running, every command
+is checked against a binary allowlist (no `$()`/backtick, no chains to a non-allowlisted
+binary) — a defense against prompt injection.
 
-```bash
-docker compose --profile app up -d                  # research-worker раз в день
-docker compose run --rm -e RESEARCH_INTERVAL_MIN=0 research-worker   # разовый прогон
-```
+### Execution architecture (sandbox-broker)
 
-## Оркестрация: 🧭 planner (декомпозиция проектов)
-
-Четвёртый агент **planner** работает как тимлид: получает ТЗ или цель проекта и
-режет её на дочерние задачи для остальных агентов. Сначала показывает план текстом
-(подзадача = исполнитель + критерий приёмки), и по подтверждению вызывает инструмент
-`slice_project`, который раскладывает подзадачи карточками в стек `To Do` доски задач
-(с меткой исполнителя) — дальше их подхватывает `deck-worker`.
-
-- Исполнители: `recon` / `coder` / `assistant` (метки `sec` / `code` / `ask`).
-- Модель: `qwen-max` → `qwen-plus` (декомпозиция требует ризонинга).
-- Свой Telegram-бот: `TELEGRAM_BOT_TOKEN_PLANNER`.
-- Метки `sec`/`code`/`ask` должны существовать на доске — иначе карточка создаётся
-  без метки и уходит агенту по умолчанию.
-
-## Этап 6: Sandbox (изолированное исполнение)
-
-recon и coder запускают команды в одноразовом Docker-контейнере и сами разбирают
-вывод (а не просят копипастить):
-
-- 🛡 recon — `run_security_command` (nmap/openssl/dig/curl/nc) **с сетью**, для
-  скана/харденинга собственной инфры.
-- 🔨 coder — `run_shell` (код/тесты/линтеры) **без сети**.
-
-Hardening sandbox'а: `cap_drop ALL`, `no-new-privileges`, read-only rootfs +
-tmpfs `/tmp`, лимиты mem/cpu/pids, non-root (uid 10001), таймаут, `--rm`.
-
-Каждую команду перед запуском проверяет allowlist бинарей (без `$()`/backtick и
-цепочек на чужой бинарь) — защита от prompt injection.
-
-### Архитектура исполнения (sandbox-broker)
-
-`docker.sock` смонтирован **только** в отдельный сервис `sandbox-broker` — у
-оркестратора прямого доступа к Docker нет. Оркестратор шлёт брокеру по HTTP
-минимальный запрос `{profile, command}`; образ, hardening, сеть и allowlist
-захардкожены в брокере и снаружи не управляются. Так RCE в оркестраторе (через
-инъекцию) не даёт ни произвольного docker, ни хоста — лишь allowlist-команду в
-зажатом sandbox.
+`docker.sock` is mounted **only** into the separate `sandbox-broker` service — the
+orchestrator has no direct Docker access. The orchestrator sends the broker a minimal
+`{profile, command}` over HTTP; the image, hardening, network and allowlist are baked
+into the broker and not controllable from outside. So RCE in the orchestrator (via
+injection) yields neither arbitrary docker nor the host — only an allowlisted command in
+a locked-down sandbox.
 
 ```
 agent → orchestrator → (HTTP) → sandbox-broker → (docker.sock) → hardened sandbox
 ```
 
 ```bash
-docker build -t ai-combine/sandbox:latest -f docker/sandbox.Dockerfile .  # образ sandbox, один раз
+docker build -t ai-combine/sandbox:latest -f docker/sandbox.Dockerfile .  # build once
 ```
 
-## Дашборд
+## Dashboard
 
-Один экран статуса на том же сервисе-оркестраторе (порт 8000), без отдельного
-сервиса/домена:
+A single status screen on the orchestrator itself (port 8000), no separate service:
 
-- `GET /dashboard` — HTML-страница (inline, авто-обновление каждые 10 с): здоровье
-  сервисов (LiteLLM/Qdrant/SearXNG/брокер), карточки агентов со счётчиками
-  использования (запросы, токены, когда последний раз), размеры RAG-коллекций,
-  число разговоров в памяти.
-- `GET /api/dashboard` — те же данные в JSON.
+- `GET /dashboard` — HTML page (inline, auto-refresh every 10s): service health
+  (LiteLLM/Qdrant/SearXNG/broker), agent cards with usage counters (requests, tokens,
+  last seen), RAG collection sizes, in-memory conversation count.
+- `GET /api/dashboard` — the same data as JSON.
 
-Метрики in-memory, считаются с момента старта процесса (см.
-[metrics.py](src/orchestrator/metrics.py)). Кнопку в OpenWebUI не добавляли —
-это сторонний образ без точки расширения; дашборд открывается по своему адресу
-`:8000/dashboard`.
+## History compaction
 
-## Ужимание истории диалога
+Before each model call, history is compacted to a token budget (`HISTORY_MAX_TOKENS`,
+default 12000) — a `ProcessHistory` capability on every agent
+([agents/history.py](src/orchestrator/agents/history.py)). It works on both paths
+(Telegram `/chat` and OpenWebUI `/v1`): keep a fresh tail, fold earlier messages with a
+marker without breaking tool-call pairs. The system prompt (`instructions=`) is separate
+and left untouched.
 
-Перед каждым запросом к модели история ужимается до токен-бюджета
-(`HISTORY_MAX_TOKENS`, дефолт 12000) — `ProcessHistory`-capability на всех агентах
-([agents/history.py](src/orchestrator/agents/history.py)). Работает на обоих путях
-(Telegram `/chat` и OpenWebUI `/v1`): держим свежий хвост, ранние сообщения
-сворачиваем с пометкой, не разрывая tool-call пары. Системный промпт
-(`instructions=`) идёт отдельно и не трогается. LLM-суммаризация старого хвоста —
-позже, вместе с персистом состояния по `conversation_id`.
-
-## Локальная разработка
+## Local development
 
 ```bash
-uv sync                       # установить зависимости
+uv sync
 uv run ruff check .
 uv run pytest
 
-# Оркестратор на хосте (сервисы торчат на localhost):
+# Orchestrator on the host (services on localhost):
 LITELLM_BASE_URL=http://localhost:4000/v1 SEARXNG_URL=http://localhost:8888 \
   QDRANT_URL=http://localhost:6333 \
   uv run uvicorn src.orchestrator.main:app --port 8000
 ```
 
-> На Windows избегай `--reload`: reloader оставляет worker-зомби, который держит
-> порт и крутит старый код. Перезапускай процесс вручную.
+> On Windows avoid `--reload`: the reloader leaves a zombie worker holding the port and
+> running stale code. Restart the process manually.
 
-## Структура
-
-См. план в Nextcloud («AI Combine — Архитектура и план»). Краткая раскладка:
+## Project layout
 
 ```
 src/
-├── orchestrator/   # FastAPI + Pydantic AI: агенты, tools, prompts, api
-├── telegram_bot/   # aiogram + whitelist
-└── rag_indexer/    # Nextcloud WebDAV crawler -> chunks -> embed -> Qdrant
+├── orchestrator/    # FastAPI + Pydantic AI: agents, tools, prompts, api
+├── deck_worker/     # autonomous tasks from Nextcloud Deck
+├── research_worker/ # token-bounded idea research
+├── telegram_bot/    # aiogram + whitelist
+├── sandbox_broker/  # the only docker.sock holder
+└── rag_indexer/     # Nextcloud crawler -> chunks -> embed -> Qdrant
 ```
 
-## Безопасность
+## Security
 
-- Telegram: whitelist user_id, long polling, без публичного домена.
-- Gitea: scoped token, push только в feature-ветки, всё через PR.
-- Nextcloud: app password только read.
-- Bash: Docker sandbox без сети, лимиты CPU/RAM, без `--privileged`.
-- Модели: выбор по `DATA_SENSITIVITY` — чувствительные данные не уходят в cloaked-модели.
+See [SECURITY.md](SECURITY.md) for the full threat model. In short: secrets only in
+`.env` (never committed); orchestrator behind a token and bound to localhost; sandbox is
+the real isolation boundary (the allowlist is a guardrail); Telegram whitelist is
+fail-closed; model choice respects data sensitivity.
