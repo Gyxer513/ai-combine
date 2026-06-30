@@ -16,7 +16,7 @@ import uuid
 from collections.abc import AsyncIterator
 
 import structlog
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic_ai.messages import (
     ModelMessage,
@@ -28,6 +28,7 @@ from pydantic_ai.messages import (
 
 from ..agents.base import AgentDeps, shared_store, shared_vstore
 from ..agents.registry import REGISTRY, get_agent
+from ..config import settings
 from ..metrics import shared_metrics
 from ..rag.embedder import EmbeddingClient
 from ..tools.github import GitHubClient
@@ -42,7 +43,20 @@ from .schemas import (
 )
 
 log = structlog.get_logger()
-router = APIRouter()
+
+
+async def require_token(authorization: str | None = Header(default=None)) -> None:
+    """Проверка Bearer-токена. Пустой токен в конфиге — не enforce (см. предупреждение
+    при старте + bind localhost). Защищает агенто-вызывающие эндпоинты."""
+    token = settings.orchestrator_api_token
+    if not token:
+        return
+    if authorization != f"Bearer {token}":
+        raise HTTPException(status_code=401, detail="invalid or missing API token")
+
+
+# Все агенто-вызывающие роуты — под токеном (см. require_token). /health — открыт.
+router = APIRouter(dependencies=[Depends(require_token)])
 
 
 def _build_deps(request: Request, conversation_id: str) -> AgentDeps:

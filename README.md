@@ -115,9 +115,16 @@ curl -s http://localhost:8000/chat \
 
 **Агенты в OpenWebUI:** Admin Panel → Settings → Connections → OpenAI API → ＋,
 base URL `http://host.docker.internal:8000/v1` (или `http://orchestrator:8000/v1`,
-если OpenWebUI в той же compose-сети), ключ любой. В выпадашке моделей появятся
-`kolobok` / `koschei` / `levsha`. Прямые модели LiteLLM (`glm-5.1`, `qwen-*`) — это
+если OpenWebUI в той же compose-сети), **ключ = `ORCHESTRATOR_API_TOKEN`** (если задан;
+оркестратор проверяет его на `/chat`, `/agents`, `/v1/*`). В выпадашке моделей появятся
+`kolobok` / `koschei` / `levsha` / `ded`. Прямые модели LiteLLM (`glm-5.1`, `qwen-*`) — это
 отдельное подключение к `http://litellm:4000/v1`, у них **нет** персоны/инструментов.
+
+> **Доступ к оркестратору.** Порт забинден на `127.0.0.1:8000` (только localhost) — у
+> агентов есть GitHub PAT / RAG / sandbox, наружу публиковать нельзя. Задай
+> `ORCHESTRATOR_API_TOKEN` (напр. `openssl rand -hex 32`) — тот же токен подхватывают
+> Telegram-боты и воркеры. Пусто = enforcement выключен (только bind localhost),
+> оркестратор предупредит в логах. Для LAN — обратный прокси с TLS+auth.
 
 ## Этап 3: RAG (база знаний из Nextcloud)
 

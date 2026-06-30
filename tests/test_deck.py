@@ -78,10 +78,10 @@ class _FakeOrch:
         return self._reply
 
 
-async def _process(deck, orch, card):
+async def _process(deck, orch, card, *, failed_id=57):
     await process_card(
         deck, orch, card,
-        board_id=22, doing_id=55, done_id=56,
+        board_id=22, doing_id=55, done_id=56, failed_id=failed_id,
         mapping={"sec": "koschei", "code": "levsha", "ask": "kolobok"},
         default="kolobok",
     )
@@ -99,8 +99,17 @@ async def test_process_card_happy_path():
     assert "Токио" in deck.comments[0][1]
 
 
-async def test_process_card_failure_still_moves_to_done():
+async def test_process_card_failure_moves_to_failed_not_done():
     deck, orch = _FakeDeck(), _FakeOrch(fail=True)
     await _process(deck, orch, {"id": 99, "title": "X", "labels": [{"title": "sec"}]})
-    assert deck.moves == [(99, 55), (99, 56)]  # всё равно доехала до Done
+    # claim в In Progress (55), затем в Failed (57) — НЕ в Done (56)
+    assert deck.moves == [(99, 55), (99, 57)]
     assert "❌" in deck.comments[0][1]  # с пометкой об ошибке
+
+
+async def test_process_card_failure_no_failed_stack_stays_in_progress():
+    # стека Failed нет -> карточка остаётся в In Progress, НЕ уезжает в Done
+    deck, orch = _FakeDeck(), _FakeOrch(fail=True)
+    await _process(deck, orch, {"id": 100, "title": "X", "labels": []}, failed_id=None)
+    assert deck.moves == [(100, 55)]  # только claim, дальше не двигаем
+    assert "❌" in deck.comments[0][1]

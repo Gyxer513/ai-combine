@@ -57,16 +57,18 @@ def wrap_untrusted(source: str, content: str) -> str:
 # ---------------------------------------------------------------------------
 
 # 🦴 Кощей: recon/TLS/DNS/net + текстовые утилиты для пайпов.
-# СОЗНАТЕЛЬНО без интерпретаторов (sh/bash/python/perl/ruby/node) и xargs:
+# СОЗНАТЕЛЬНО без интерпретаторов (sh/bash/python/perl/ruby/node), xargs и awk:
 # у его sandbox есть сеть, поэтому произвольное исполнение = эксфильтрация/пивот.
+# awk/gawk исключены намеренно — у них есть system()/| getline, т.е. разрешённый
+# первый бинарь запускал бы любой другой в обход allowlist (для текста хватает sed/grep/jq).
 SECOPS_ALLOWED: frozenset[str] = frozenset(
     {
         "nmap", "ncat", "nc", "openssl", "dig", "host", "nslookup", "whois",
         "curl", "ping", "traceroute", "tracepath", "ip", "ss",
         # веб-аудит (только по своей инфре — ограничено промптом Кощея)
         "nuclei", "nikto", "testssl.sh", "httpx",
-        # текстовая обработка вывода
-        "grep", "egrep", "fgrep", "awk", "gawk", "sed", "cut", "sort", "uniq",
+        # текстовая обработка вывода (БЕЗ awk — см. комментарий выше)
+        "grep", "egrep", "fgrep", "sed", "cut", "sort", "uniq",
         "head", "tail", "cat", "tr", "wc", "jq", "echo", "tee", "column",
     }
 )
@@ -97,6 +99,31 @@ _CHAIN_OPS = {";", "&", "&&", "||", "|", "|&"}
 _REDIR_OPS = {"<", ">", ">>", "<<", ">&", "<&", "<<<"}
 # Группировка/подоболочка — запрещаем целиком (может прятать исполнение).
 _GROUP_OPS = {"(", ")", "{", "}"}
+
+# Опасные аргументы у разрешённых бинарей: дают выход в произвольное исполнение
+# (или чтение ФС) в обход allowlist, хотя первый бинарь сам по себе разрешён.
+# Проверка первого токена недостаточна — нужен и разбор аргументов сегмента.
+# "://"-паттерны матчатся как подстрока (схема URL), флаги — как точный токен или
+# `flag=...`; короткие `-x` ловятся и в связке (`-ne`).
+_DANGEROUS_ARGS: dict[str, tuple[str, ...]] = {
+    "nmap": ("--script", "--interactive"),       # NSE Lua os.execute / shell-escape
+    "ncat": ("-e", "--exec", "--sh-exec", "--lua-exec"),  # привязать команду к сокету
+    "nc": ("-e", "-c"),                          # -e/-c исполняют команду на коннект
+    "nuclei": ("-code",),                        # протокол code = исполнение по дизайну
+    "curl": ("file://", "-K", "--config"),       # чтение ФС / подгрузка произвольного конфига
+}
+
+
+def _arg_matches(arg: str, pat: str) -> bool:
+    """Совпадает ли аргумент с опасным паттерном (см. _DANGEROUS_ARGS)."""
+    if "://" in pat:  # схема URL — подстрока
+        return pat in arg
+    if arg == pat or arg.startswith(pat + "="):
+        return True
+    # короткий флаг (-e): ловим и в связке односимвольных флагов (-ne, -ze)
+    if len(pat) == 2 and pat[0] == "-" and pat[1] != "-":
+        return arg.startswith("-") and not arg.startswith("--") and pat[1] in arg[1:]
+    return False
 
 
 class CommandGuard:
@@ -136,6 +163,7 @@ class CommandGuard:
 
         expect_binary = True
         skip_next = False
+        current_binary = ""  # бинарь текущего сегмента — для проверки его аргументов
         for tok in tokens:
             if skip_next:  # цель редиректа — не бинарь
                 skip_next = False
@@ -147,13 +175,19 @@ class CommandGuard:
                 continue
             if tok in _CHAIN_OPS:
                 expect_binary = True
+                current_binary = ""
                 continue
             if expect_binary:
                 binary = _basename(tok)
                 if binary not in self._allowed:
                     return False, f"бинарь «{binary}» не в allowlist"
+                current_binary = binary
                 expect_binary = False
-            # иначе это аргумент — пропускаем
+                continue
+            # аргумент текущего бинаря — проверяем на escape-флаги
+            for pat in _DANGEROUS_ARGS.get(current_binary, ()):
+                if _arg_matches(tok, pat):
+                    return False, f"опасный аргумент «{tok}» для «{current_binary}»"
         return True, ""
 
 

@@ -65,7 +65,11 @@ services:
     build:
       context: .
       dockerfile: docker/orchestrator.Dockerfile
-    ports: ["8000:8000"]
+    # Bind ТОЛЬКО на localhost: оркестратор вызывает агентов с доступом к GitHub
+    # PAT / RAG / sandbox-broker — наружу его публиковать нельзя. Доступ в LAN —
+    # через обратный прокси с TLS+auth. Дополнительно — обязательный Bearer-токен
+    # (ORCHESTRATOR_API_TOKEN), который проверяют /chat, /agents, /v1/*.
+    ports: ["127.0.0.1:8000:8000"]
     env_file: .env
     environment:
       - LITELLM_BASE_URL=http://litellm:4000/v1

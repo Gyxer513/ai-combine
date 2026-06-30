@@ -21,6 +21,12 @@ log = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.http = httpx.AsyncClient(timeout=30)
+    if not settings.orchestrator_api_token:
+        log.warning(
+            "orchestrator.no_api_token",
+            msg="ORCHESTRATOR_API_TOKEN не задан — /chat и /v1/* без аутентификации; "
+            "полагаемся только на bind localhost. Задай токен для прода.",
+        )
     log.info("orchestrator.start", litellm=settings.litellm_base_url)
     try:
         yield

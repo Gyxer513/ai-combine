@@ -16,9 +16,13 @@ class OrchestratorClient:
 
     async def chat(self, *, message: str, agent: str, conversation_id: str) -> str:
         """Отправить сообщение агенту, вернуть текст ответа."""
+        headers = {}
+        if settings.orchestrator_api_token:
+            headers["Authorization"] = f"Bearer {settings.orchestrator_api_token}"
         resp = await self._http.post(
             f"{self._base_url}/chat",
             json={"message": message, "agent": agent, "conversation_id": conversation_id},
+            headers=headers,
             timeout=settings.telegram_reply_timeout_sec,
         )
         resp.raise_for_status()

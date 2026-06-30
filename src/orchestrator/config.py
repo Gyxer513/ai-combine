@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     litellm_base_url: str = Field(default="http://litellm:4000/v1")
     litellm_master_key: str = Field(default="sk-litellm-change-me")
 
+    # --- Аутентификация оркестратора ---
+    # Bearer-токен на /chat, /agents, /v1/* (агенты имеют доступ к GitHub PAT/RAG/
+    # sandbox-broker — без токена любой с доступом к порту вызовет агента). Пустой —
+    # НЕ enforce (полагаемся на bind localhost), но оркестратор громко предупредит.
+    # В OpenWebUI этот токен указывается как «ключ API» подключения.
+    orchestrator_api_token: str = Field(default="")
+
     # --- Персистентность (SQLite) ---
     # Файл переживает рестарт: история диалогов, заметки, метрики. ":memory:" в тестах.
     db_path: str = Field(default="data/ai_combine.db")
@@ -90,6 +97,10 @@ class Settings(BaseSettings):
     deck_todo_stack: str = Field(default="To Do")
     deck_doing_stack: str = Field(default="In Progress")
     deck_done_stack: str = Field(default="Done")
+    # Куда уезжает карточка при ошибке выполнения (НЕ в Done — иначе доска врёт об
+    # успехе и повтора не будет). Если стека нет на доске — карточка остаётся в
+    # In Progress (видно, что зависла), а не уезжает в Done.
+    deck_failed_stack: str = Field(default="Failed")
     # Метка карточки -> агент (CSV "label:agent"). Без метки -> deck_default_agent.
     deck_label_agent_map: str = Field(default="sec:koschei,code:levsha,ask:kolobok")
     deck_default_agent: str = Field(default="kolobok")

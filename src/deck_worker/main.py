@@ -32,9 +32,13 @@ class OrchestratorClient:
         self._base = base_url.rstrip("/")
 
     async def chat(self, message: str, agent: str, conversation_id: str) -> str:
+        headers = {}
+        if settings.orchestrator_api_token:
+            headers["Authorization"] = f"Bearer {settings.orchestrator_api_token}"
         resp = await self._http.post(
             f"{self._base}/chat",
             json={"message": message, "agent": agent, "conversation_id": conversation_id},
+            headers=headers,
             timeout=_REPLY_TIMEOUT,
         )
         resp.raise_for_status()
@@ -65,10 +69,15 @@ async def process_card(
     board_id: int,
     doing_id: int,
     done_id: int,
+    failed_id: int | None,
     mapping: dict[str, str],
     default: str,
 ) -> None:
-    """Обработать одну карточку: claim -> агент -> комментарий -> Done."""
+    """Обработать одну карточку: claim -> агент -> комментарий -> Done/Failed.
+
+    Успех -> Done. Ошибка -> Failed (если стек есть), иначе карточка остаётся в
+    In Progress — НЕ уезжает в Done, чтобы доска не сообщала о ложном успехе.
+    """
     card_id = card["id"]
     agent = agent_for_card(card, mapping, default)
     log.info("deck.card.start", card=card_id, agent=agent, title=card.get("title"))
@@ -78,11 +87,15 @@ async def process_card(
         reply = await orch.chat(card_prompt(card), agent, f"deck:{card_id}")
         await deck.add_comment(card_id, f"🤖 {agent}:\n\n{reply or '(пустой ответ)'}")
         log.info("deck.card.done", card=card_id, agent=agent)
+        await deck.move_card(board_id, card_id, done_id)
     except Exception as exc:  # noqa: BLE001 — одна карточка не должна валить цикл
         log.warning("deck.card.failed", card=card_id, agent=agent, error=str(exc))
-        with contextlib.suppress(Exception):  # коммент не критичен для переноса в Done
+        with contextlib.suppress(Exception):  # коммент не критичен для переноса
             await deck.add_comment(card_id, f"❌ Не удалось выполнить: {exc}")
-    await deck.move_card(board_id, card_id, done_id)
+        if failed_id is not None:
+            await deck.move_card(board_id, card_id, failed_id)
+        else:  # стека Failed нет — оставляем в In Progress, видно что зависла
+            log.warning("deck.no_failed_stack", card=card_id)
 
 
 async def run_once(deck: DeckClient, orch: OrchestratorClient) -> None:
@@ -95,6 +108,8 @@ async def run_once(deck: DeckClient, orch: OrchestratorClient) -> None:
     todo = by_title.get(settings.deck_todo_stack)
     doing = by_title.get(settings.deck_doing_stack)
     done = by_title.get(settings.deck_done_stack)
+    # опционален: если стека нет — провал оставит карточку в In Progress
+    failed = by_title.get(settings.deck_failed_stack)
     if not (todo and doing and done):
         log.warning("deck.stacks_missing", have=list(by_title))
         return
@@ -113,6 +128,7 @@ async def run_once(deck: DeckClient, orch: OrchestratorClient) -> None:
                 board_id=board["id"],
                 doing_id=doing["id"],
                 done_id=done["id"],
+                failed_id=failed["id"] if failed else None,
                 mapping=mapping,
                 default=settings.deck_default_agent,
             )
