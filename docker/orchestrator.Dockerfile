@@ -8,10 +8,14 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PYTHONUNBUFFERED=1
 
-# Dependencies (cacheable layer). --extra rag: the orchestrator imports qdrant_client.
+# Dependencies (cacheable layer).
+#   --extra rag:  the orchestrator imports qdrant_client.
+#   --extra docs: local docs semantic search (onnxruntime/faiss) — needed at QUERY time
+#                 to embed; the model itself downloads lazily into the data volume.
+#                 Drop it if DOCS_SEARCH_ENABLED stays false to slim the image.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --no-install-project --extra rag
+    uv sync --no-dev --no-install-project --extra rag --extra docs
 
 COPY src/ ./src/
 

@@ -152,6 +152,26 @@ LITELLM_BASE_URL=http://localhost:4000/v1 QDRANT_URL=http://localhost:6333 \
   uv run python -m src.rag_indexer.main
 ```
 
+## Семантический поиск по докам (локально, опционально)
+
+Инструмент `search_docs` позволяет агентам (assistant, planner) отвечать на вопросы
+**про саму систему** по её собственным MD-докам (README, `docs/`, SECURITY) — полностью
+локально и офлайн, отдельно от Nextcloud-RAG. **EmbeddingGemma-300m (int8)** через ONNX
+Runtime + FAISS: без torch, без API, ~0.4–0.7 ГБ резидентно при загрузке.
+
+```bash
+# собрать индекс по MD-корпусу (пишет в data/docs_index/):
+docker compose --profile docs run --rm docs-indexer
+# включить в .env:  DOCS_SEARCH_ENABLED=true   (+ HF_TOKEN, если репо модели gated)
+# проверить модель на своей машине:
+uv run --extra docs python -m src.docs_search.index --selftest
+```
+
+По умолчанию выключено — при `DOCS_SEARCH_ENABLED=false` (или без собранного индекса)
+инструмент мягко сообщает, что недоступен, и ничего не грузит. Образ оркестратора уже
+включает extra `docs`; модель (~300 МБ) скачивается лениво в `data/models/` при первом
+использовании. Корпус настраивается через `DOCS_GLOBS`.
+
 ## Этап 5: Telegram-бот
 
 Бот на aiogram 3 — мост к оркестратору (сам LLM не зовёт). Доступ по whitelist.

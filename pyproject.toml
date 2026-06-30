@@ -1,7 +1,7 @@
 [project]
 name = "ai-combine"
 version = "0.1.0"
-description = "Self-hosted multi-agent combine: SecOps/Coder/General/Chronicler agents on cheap LLMs"
+description = "Self-hosted multi-agent combine: SecOps/Coder/General/Planner agents on cheap LLMs"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Filipp Panchuk (Gyxer)" }]
@@ -29,6 +29,15 @@ rag = [
     "qdrant-client>=1.12",
     "webdav4>=0.10",
     "tiktoken>=0.8",
+]
+# Local semantic search over the combine's own Markdown docs.
+# EmbeddingGemma-300m (int8) via ONNX Runtime + FAISS, no torch — light and offline.
+docs = [
+    "onnxruntime>=1.19",
+    "faiss-cpu>=1.9",
+    "tokenizers>=0.20",
+    "huggingface-hub>=0.26",
+    "numpy>=1.26",
 ]
 
 [dependency-groups]

@@ -53,6 +53,30 @@ class Settings(BaseSettings):
     # Auto-indexing interval in minutes: >0 — indexer runs in a loop, 0 — a single pass.
     rag_index_interval_min: int = Field(default=0)
 
+    # --- Docs semantic search (local, offline) ---
+    # A small local semantic index over the combine's OWN Markdown docs, separate from
+    # the Nextcloud RAG above. EmbeddingGemma-300m (int8) via ONNX Runtime + FAISS — no
+    # torch, no API, ~0.4-0.7 GB resident when loaded. Opt-in: needs the `docs` extra
+    # installed AND a built index (python -m src.docs_search.index); otherwise the
+    # search_docs tool degrades to a friendly "index not built" message.
+    docs_search_enabled: bool = Field(default=False)
+    docs_model_repo: str = Field(default="onnx-community/embeddinggemma-300m-ONNX")
+    docs_model_file: str = Field(default="onnx/model_quantized.onnx")  # int8/quantized
+    docs_tokenizer_file: str = Field(default="tokenizer.json")
+    docs_model_dim: int = Field(default=768)  # full dim; Matryoshka could truncate lower
+    docs_model_cache: str = Field(default="data/models")  # HF download cache (volume)
+    docs_index_dir: str = Field(default="data/docs_index")  # faiss index + metadata
+    docs_chunk_chars: int = Field(default=1200)  # chars per chunk
+    docs_chunk_overlap: int = Field(default=200)
+    docs_top_k: int = Field(default=5)
+    # Which Markdown files make up the corpus (CSV of globs, relative to repo root).
+    docs_globs: str = Field(default="README.md,README.ru.md,SECURITY.md,docs/**/*.md")
+    # EmbeddingGemma prompt prefixes (recommended by the model card for retrieval).
+    docs_query_prefix: str = Field(default="task: search result | query: ")
+    docs_doc_prefix: str = Field(default="title: none | text: ")
+    # Optional HF token if the model repo is gated.
+    hf_token: str = Field(default="")
+
     # --- Sandbox (Stage 6: isolated command execution) ---
     # The orchestrator does NOT have docker.sock — it talks to the sandbox-broker over HTTP.
     # docker.sock is only on the broker; the broker reads the parameters below.

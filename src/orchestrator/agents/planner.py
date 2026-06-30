@@ -13,6 +13,7 @@ from pydantic_ai import Agent
 
 from ..tools.common import register_common_tools
 from ..tools.deck import register_planner_tool
+from ..tools.docs import register_docs_tool
 from ..tools.rag import register_rag_tool
 from .base import (
     AgentDeps,
@@ -39,3 +40,4 @@ agent = Agent(
 register_common_tools(agent)
 register_rag_tool(agent, namespace="personal")
 register_planner_tool(agent)  # slice_project: subtask cards onto the Deck board
+register_docs_tool(agent)  # semantic search over the combine's own docs

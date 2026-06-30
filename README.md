@@ -143,6 +143,26 @@ docker compose --profile app up -d   # rag-indexer loops every RAG_INDEX_INTERVA
 docker compose run --rm -e RAG_INDEX_INTERVAL_MIN=0 rag-indexer   # one-off run
 ```
 
+## Docs semantic search (local, optional)
+
+The `search_docs` tool lets agents (assistant, planner) answer questions about **this
+very system** from its own Markdown docs (README, `docs/`, SECURITY) — fully local and
+offline, separate from the Nextcloud RAG. **EmbeddingGemma-300m (int8)** via ONNX Runtime
++ FAISS: no torch, no API, ~0.4–0.7 GB resident when loaded.
+
+```bash
+# build the index over the Markdown corpus (writes data/docs_index/):
+docker compose --profile docs run --rm docs-indexer
+# enable it in .env:  DOCS_SEARCH_ENABLED=true   (+ HF_TOKEN if the model repo is gated)
+# sanity-check the model on your box:
+uv run --extra docs python -m src.docs_search.index --selftest
+```
+
+Off by default — when `DOCS_SEARCH_ENABLED=false` (or the index isn't built) the tool
+degrades to a friendly message and nothing is loaded. The orchestrator image already
+bundles the `docs` extra; the ~300 MB model downloads lazily into `data/models/` on first
+use. Corpus is configurable via `DOCS_GLOBS`.
+
 ## Telegram
 
 An aiogram 3 bot — a bridge to the orchestrator (it doesn't call the LLM itself).

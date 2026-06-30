@@ -137,6 +137,24 @@ services:
     profiles: ["app", "indexer"]
     restart: unless-stopped
 
+  # --- Docs index builder (optional, profile docs) ---
+  # One-off: builds the local semantic index over the combine's own Markdown into the
+  # shared data volume (data/docs_index). The orchestrator reads it at query time and
+  # downloads the EmbeddingGemma model lazily into data/models.
+  #   docker compose --profile docs run --rm docs-indexer
+  docs-indexer:
+    build:
+      context: .
+      dockerfile: docker/docs.Dockerfile
+    env_file: .env
+    environment:
+      - DOCS_INDEX_DIR=/app/data/docs_index
+      - DOCS_MODEL_CACHE=/app/data/models
+    volumes:
+      - ./data:/app/data
+    profiles: ["docs"]
+    restart: "no"
+
   # --- Deck worker (autonomy) ---
   # Pulls tasks from Nextcloud Deck and runs them with agents via the orchestrator.
   # In the app profile it polls the board every DECK_POLL_INTERVAL_MIN (default 2 min).

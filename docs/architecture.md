@@ -43,6 +43,10 @@ OpenWebUI / Telegram
 - **SQLite persistence.** Conversation history, notes and metrics survive restarts.
 - **History compaction.** History is compacted to a token budget (`HISTORY_MAX_TOKENS`)
   before each model call.
+- **Local docs search (optional).** A separate `search_docs` tool gives agents semantic
+  search over the combine's own Markdown — EmbeddingGemma-300m (int8) via ONNX + FAISS,
+  fully local and offline, ~0.4–0.7 GB resident. Off by default; build the index with
+  `docker compose --profile docs run --rm docs-indexer`.
 
 ## Deck-worker: autonomous tasks
 
