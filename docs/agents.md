@@ -1,12 +1,12 @@
-# Агенты
+# Agents
 
-Каждый агент — отдельная «модель» в OpenWebUI и (опционально) свой Telegram-бот.
-Персона задаётся через `instructions=` (не `system_prompt=` — тот теряется при
-передаче `message_history`). Модели идут пер-агентной fallback-цепочкой через Pydantic
-AI `FallbackModel`. Выбор моделей завязан на `DataSensitivity`: чувствительные данные
-не уходят в cloaked-модели.
+Each agent is a separate "model" in OpenWebUI and (optionally) its own Telegram bot. The
+persona is set via `instructions=` (not `system_prompt=`, which is lost when
+`message_history` is passed). Models run as a per-agent fallback chain via Pydantic AI
+`FallbackModel`. Model choice is tied to `DataSensitivity`: sensitive data never goes to
+cloaked models.
 
-| Агент | Модель (основная → fallback) | Sensitivity | RAG namespace |
+| Agent | Model (primary → fallback) | Sensitivity | RAG namespace |
 |---|---|---|---|
 | 💬 `assistant` | `owl-alpha-free` → qwen-plus → qwen-max | public | personal |
 | 🛡 `recon` | `glm-5.1` (thinking) → nemotron-super-free → qwen-max | secret | security |
@@ -15,38 +15,37 @@ AI `FallbackModel`. Выбор моделей завязан на `DataSensitivi
 
 ## 🛡 recon — SecOps
 
-Обучение ИБ, threat modeling, hardening **собственной** инфры. Инструмент
-`run_security_command` исполняет команды в изолированном sandbox **с сетью**
-(nmap/openssl/dig/curl/nc + веб-аудит nuclei/nikto/testssl.sh/httpx). Sensitivity
-`secret` — только платные/enterprise-модели, без cloaked.
+InfoSec learning, threat modeling, hardening of **your own** infra. The
+`run_security_command` tool runs commands in an isolated sandbox **with network**
+(nmap/openssl/dig/curl/nc + web audit nuclei/nikto/testssl.sh/httpx). Sensitivity
+`secret` — paid/enterprise models only, no cloaked.
 
 ## 🔨 coder — Coder
 
-Чтение/написание/ревью кода. `run_shell` гоняет тесты/линтеры в sandbox **без сети**
-(эксфильтрация невозможна). GitHub-скил: ветки, коммиты, Pull Request — изменения
-всегда в feature-ветку + PR на ревью человеку, никогда в основную ветку.
+Read/write/review code. `run_shell` runs tests/linters in a sandbox **without network**
+(exfiltration impossible). GitHub skill: branches, commits, Pull Requests — changes always
+go to a feature branch + PR for human review, never to the main branch.
 
 ## 💬 assistant — General
 
-Общий помощник: ресёрч, поиск, бытовые вопросы. Sensitivity `public` — впереди
-бесплатные модели. Тот же агент стоит за `research-worker` (автономный ресёрч идей
-заработка на Deck-доску «Идеи»).
+General helper: research, search, everyday questions. Sensitivity `public` — free models
+first. The same agent powers `research-worker` (autonomous research of money-making ideas
+onto the Deck board "Ideas").
 
 ## 🧭 planner — Orchestrator
 
-Работает как тимлид: получает ТЗ/цель проекта и режет на дочерние задачи для
-остальных агентов. Сначала показывает план текстом (подзадача = исполнитель +
-критерий приёмки), и по подтверждению вызывает `slice_project`, который раскладывает
-подзадачи карточками в стек `To Do` доски задач (с меткой исполнителя) — дальше их
-подхватывает `deck-worker`.
+Works like a team lead: takes a project brief/goal and slices it into child tasks for the
+other agents. It first shows the plan as text (subtask = executor + acceptance criterion),
+and on confirmation calls `slice_project`, which lays the subtasks out as cards in the
+`To Do` stack (with the executor's label) — then `deck-worker` picks them up.
 
-- Исполнители: `recon` / `coder` / `assistant` (метки `sec` / `code` / `ask`).
-- Метки `sec`/`code`/`ask` должны существовать на доске, иначе карточка создаётся без
-  метки и уходит агенту по умолчанию.
+- Executors: `recon` / `coder` / `assistant` (labels `sec` / `code` / `ask`).
+- Labels `sec`/`code`/`ask` must exist on the board, otherwise a card is created without a
+  label and goes to the default agent.
 
 ## Telegram
 
-Один бот = один агент (жёсткая привязка по токену, переключения нет). Токены:
-`TELEGRAM_BOT_TOKEN_ASSISTANT` / `_RECON` / `_CODER` / `_PLANNER` (или общий
-`TELEGRAM_BOT_TOKEN` → assistant). Доступ — whitelist по числовому `user_id`,
-по умолчанию **fail-closed** (пустой список = никого).
+One bot = one agent (hard-bound by token, no switching). Tokens:
+`TELEGRAM_BOT_TOKEN_ASSISTANT` / `_RECON` / `_CODER` / `_PLANNER` (or a shared
+`TELEGRAM_BOT_TOKEN` → assistant). Access is whitelisted by numeric `user_id`,
+**fail-closed** by default (empty list = nobody).

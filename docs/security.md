@@ -1,48 +1,46 @@
-# Безопасность
+# Security
 
-AI Combine **исполняет команды и обращается к вашей инфраструктуре** от вашего имени.
-Перед использованием поймите модель угроз. Канонический источник —
-[`SECURITY.md`](https://github.com/Gyxer513/ai-combine/blob/main/SECURITY.md) в репозитории.
+AI Combine **executes commands and reaches into your infrastructure** on your behalf.
+Understand the threat model before using it. The canonical source is
+[`SECURITY.md`](https://github.com/Gyxer513/ai-combine/blob/main/SECURITY.md) in the repo.
 
-!!! danger "Дисклеймер"
-    Запускайте только на своей инфраструктуре и против своих целей. Сканирование чужих
-    систем без разрешения незаконно. Промпт `recon` это ограничивает, но техническая
-    граница — на вас.
+!!! danger "Disclaimer"
+    Run it only on your own infrastructure and against your own targets. Scanning other
+    people's systems without permission is illegal. The `recon` prompt restricts this, but
+    the technical boundary is on you.
 
-## Доступ к оркестратору
+## Orchestrator access
 
-- Порт забинден на `127.0.0.1:8000` (только localhost): у агентов есть GitHub PAT,
-  RAG и sandbox-broker — наружу публиковать нельзя. Для LAN — обратный прокси с
+- The port is bound to `127.0.0.1:8000` (localhost only): the agents hold a GitHub PAT,
+  RAG and sandbox-broker access, so it must not be exposed. For LAN — a reverse proxy with
   TLS+auth.
-- **Обязательный Bearer-токен** `ORCHESTRATOR_API_TOKEN` на `/chat`, `/agents`,
-  `/v1/*`. Тот же токен берут боты и воркеры; в OpenWebUI он указывается как «ключ
-  API». Пусто = enforcement выключен (только bind localhost), оркестратор громко
-  предупредит при старте.
+- A **mandatory Bearer token** `ORCHESTRATOR_API_TOKEN` is checked on `/chat`, `/agents`,
+  `/v1/*`. The bots and workers use the same token; in OpenWebUI it's the connection's
+  "API key". Empty = enforcement off (localhost bind only); the orchestrator warns loudly
+  in the logs at startup.
 
-## Привилегии и изоляция
+## Privileges and isolation
 
-- **sandbox-broker — единственный сервис с `docker.sock`.** Минимален, наружу порт не
-  публикуется. Оркестратор docker.sock не имеет — RCE в нём не даёт прямого доступа к
-  хосту.
-- **Sandbox-контейнеры** эфемерны (`--rm`), non-root, `cap_drop ALL`,
-  `no-new-privileges`, read-only rootfs + tmpfs, лимиты mem/cpu/pids, таймаут. Профиль
-  `coder` — без сети; `secops` — с сетью.
-- **Allowlist бинарей** + защита от инъекций (`$()`, backtick, цепочки). Это
-  **guardrail, а не граница безопасности** — настоящая граница это сам sandbox.
-  Allowlist фильтрует первый бинарь *и* опасные аргументы (`nmap --script`, `nc -e`,
-  `nuclei -code`, `curl file://`); интерпретаторы и `awk`/`gawk` из SecOps-профиля
-  исключены намеренно.
-- Вывод инструментов помечается недоверенным (`wrap_untrusted`) против prompt
-  injection из ответов целей и заметок.
+- **sandbox-broker is the only service with `docker.sock`.** Minimal, port not published.
+  The orchestrator has no docker.sock — RCE in it gives no direct host access.
+- **Sandbox containers** are ephemeral (`--rm`), non-root, `cap_drop ALL`,
+  `no-new-privileges`, read-only rootfs + tmpfs, mem/cpu/pids limits and a timeout. The
+  `coder` profile has no network; `secops` has network.
+- **Binary allowlist** + injection defenses (`$()`, backtick, chains). This is a
+  **guardrail, not a security boundary** — the real boundary is the sandbox itself. The
+  allowlist filters the first binary *and* dangerous arguments (`nmap --script`, `nc -e`,
+  `nuclei -code`, `curl file://`); interpreters and `awk`/`gawk` are deliberately excluded
+  from the SecOps profile. Tool output is marked untrusted (`wrap_untrusted`) against
+  prompt injection from target responses and notes.
 
-## Секреты
+## Secrets
 
-- **Только в `.env`** (в `.gitignore`; `.env.example` — шаблон). Никогда не коммитьте.
-- **Telegram**: whitelist по числовым `user_id`, по умолчанию fail-closed.
-- **Nextcloud**: app password (не основной), по возможности отдельный read-аккаунт.
-- **GitHub-скил**: PAT, scoped на конкретный репозиторий.
+- **Only in `.env`** (in `.gitignore`; `.env.example` is the template). Never commit it.
+- **Telegram**: whitelist by numeric `user_id`, fail-closed by default.
+- **Nextcloud**: an app password (not the main one), ideally a separate read-only account.
+- **GitHub skill**: a PAT scoped to a specific repository.
 
-## Сообщить об уязвимости
+## Reporting a vulnerability
 
-Приватный security advisory в GitHub (Security → Report a vulnerability) или issue без
-чувствительных деталей. Хобби-проект — фиксы по возможности, без SLA.
+A private security advisory on GitHub (Security → Report a vulnerability) or an issue
+without sensitive details. It's a hobby project — fixes on a best-effort basis, no SLA.

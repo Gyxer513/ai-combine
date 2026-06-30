@@ -15,5 +15,5 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY src/ ./src/
 
 ENV PATH="/app/.venv/bin:$PATH"
-# Этап 3: прогон индексатора. RAG_INDEX_INTERVAL_MIN>0 -> цикл, иначе один проход.
+# Stage 3: indexer run. RAG_INDEX_INTERVAL_MIN>0 -> loop, otherwise a single pass.
 CMD ["python", "-m", "src.rag_indexer.main"]

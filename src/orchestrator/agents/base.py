@@ -1,14 +1,14 @@
-"""Базовый слой агентов (Pydantic AI).
+"""Base agent layer (Pydantic AI).
 
-Здесь общая инфраструктура, не зависящая от конкретного агента:
+Shared infrastructure that does not depend on any specific agent:
 
-* `DataSensitivity` — категория данных агента (см. план: выбор моделей).
-* `build_model` — фабрика модели поверх LiteLLM с пер-агентной fallback-цепочкой
-  (`FallbackModel`): первая модель основная, остальные — резерв при сбое/лимите.
-* `load_prompt` — чтение системного промпта из `prompts/<name>.md`.
-* `AgentDeps` — общие зависимости, прокидываемые в инструменты через `RunContext`.
+* `DataSensitivity` — an agent's data category (see the plan: model selection).
+* `build_model` — a model factory on top of LiteLLM with a per-agent fallback chain
+  (`FallbackModel`): the first model is primary, the rest are backups on failure/limit.
+* `load_prompt` — reads the system prompt from `prompts/<name>.md`.
+* `AgentDeps` — shared dependencies passed into tools via `RunContext`.
 
-Сами агенты (assistant/recon/coder) собираются в своих модулях.
+The agents themselves (assistant/recon/coder) are assembled in their own modules.
 """
 
 from __future__ import annotations
@@ -39,24 +39,24 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 
 class DataSensitivity(StrEnum):
-    """Категория данных агента -> допустимость cloaked-моделей (см. план)."""
+    """Agent data category -> whether cloaked models are allowed (see the plan)."""
 
-    PUBLIC = "public"  # любые free-модели
-    INTERNAL = "internal"  # только open weights / платные
-    SECRET = "secret"  # только платные / enterprise (recon)
+    PUBLIC = "public"  # any free model
+    INTERNAL = "internal"  # open weights / paid only
+    SECRET = "secret"  # paid / enterprise only (recon)
 
 
 def history_capabilities() -> list[ProcessHistory]:
-    """Capabilities ужимания истории — единые для всех агентов (см. history.py)."""
+    """History-compaction capabilities — shared by all agents (see history.py)."""
     return [ProcessHistory(compact_history)]
 
 
 def load_prompt(name: str) -> str:
-    """Прочитать системный промпт `prompts/<name>.md` + добавить security-преамбулу.
+    """Read the system prompt `prompts/<name>.md` and append the security preamble.
 
-    Преамбула (защита от prompt injection) дописывается ко всем агентам
-    централизованно — чтобы assistant/recon/coder/будущий planner одинаково не доверяли
-    инструкциям, спрятанным в результатах инструментов.
+    The preamble (prompt-injection defense) is appended to every agent
+    centrally — so assistant/recon/coder/the future planner all equally distrust
+    instructions hidden inside tool results.
     """
     path = PROMPTS_DIR / f"{name}.md"
     persona = path.read_text(encoding="utf-8").strip()
@@ -64,14 +64,14 @@ def load_prompt(name: str) -> str:
 
 
 def build_model(model_names: list[str]) -> Model:
-    """Собрать модель поверх LiteLLM из цепочки имён моделей.
+    """Build a model on top of LiteLLM from a chain of model names.
 
-    `model_names` — имена deployment'ов из `litellm_config.yaml` (например
-    ``["owl-alpha-free", "qwen-plus", "qwen-max"]``). Первая — основная, на сбое
-    или rate-limit Pydantic AI прозрачно переключается на следующую.
+    `model_names` — deployment names from `litellm_config.yaml` (for example
+    ``["owl-alpha-free", "qwen-plus", "qwen-max"]``). The first is primary; on failure
+    or rate-limit Pydantic AI transparently switches to the next.
     """
     if not model_names:
-        raise ValueError("model_names не может быть пустым")
+        raise ValueError("model_names cannot be empty")
 
     provider = OpenAIProvider(
         base_url=settings.litellm_base_url,
@@ -85,11 +85,11 @@ def build_model(model_names: list[str]) -> Model:
 
 @dataclass(slots=True)
 class AgentDeps:
-    """Зависимости, доступные инструментам агента через `RunContext`.
+    """Dependencies available to an agent's tools via `RunContext`.
 
-    Создаётся на время одного запроса. `conversation_id` связывает вызов
-    с историей и scratchpad-заметками в общем `ConversationStore`.
-    `embedder`/`vstore` нужны инструменту RAG (None — если RAG не сконфигурирован).
+    Created for the duration of a single request. `conversation_id` links the call
+    to its history and scratchpad notes in the shared `ConversationStore`.
+    `embedder`/`vstore` are needed by the RAG tool (None if RAG is not configured).
     """
 
     conversation_id: str
@@ -97,18 +97,18 @@ class AgentDeps:
     store: ConversationStore
     embedder: EmbeddingClient | None = None
     vstore: VectorStore | None = None
-    broker: BrokerClient | None = None  # клиент sandbox-broker (shell-инструменты)
-    github: GitHubClient | None = None  # клиент GitHub (репозитории, coder)
+    broker: BrokerClient | None = None  # sandbox-broker client (shell tools)
+    github: GitHubClient | None = None  # GitHub client (repositories, coder)
     extra: dict[str, str] = field(default_factory=dict)
 
 
 @lru_cache(maxsize=1)
 def shared_store() -> ConversationStore:
-    """Единый на процесс стор истории/заметок (SQLite, переживает рестарт)."""
+    """Process-wide history/notes store (SQLite, survives restarts)."""
     return ConversationStore(shared_db())
 
 
 @lru_cache(maxsize=1)
 def shared_vstore() -> VectorStore:
-    """Единое на процесс подключение к Qdrant."""
+    """Process-wide connection to Qdrant."""
     return VectorStore()

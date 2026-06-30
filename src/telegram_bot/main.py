@@ -1,10 +1,10 @@
-"""Entrypoint Telegram-бота (aiogram 3, long polling).
+"""Telegram bot entrypoint (aiogram 3, long polling).
 
-Запуск:
+Run:
     uv run python -m src.telegram_bot.main
 
-Бот сам по себе не зовёт LLM — он мост к оркестратору (/chat). Доступ ограничен
-whitelist'ом (TELEGRAM_ALLOWED_USERS).
+The bot does not call the LLM itself — it's a bridge to the orchestrator (/chat).
+Access is restricted by a whitelist (TELEGRAM_ALLOWED_USERS).
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ log = structlog.get_logger()
 
 
 async def run() -> None:
-    # aiogram пишет ошибки роутинга/хендлеров через стандартный logging —
-    # без этого они уходят в никуда, и сбои выглядят как «бот молчит».
+    # aiogram logs routing/handler errors through the standard logging module —
+    # without this they go nowhere and failures just look like "the bot is silent".
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
@@ -35,7 +35,7 @@ async def run() -> None:
     tokens = settings.agent_bot_tokens  # {agent: token}
     if not tokens:
         raise SystemExit(
-            "Не задан ни один токен бота "
+            "No bot token is set "
             "(TELEGRAM_BOT_TOKEN / TELEGRAM_BOT_TOKEN_ASSISTANT/RECON/CODER/PLANNER)"
         )
 

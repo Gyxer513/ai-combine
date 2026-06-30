@@ -1,17 +1,17 @@
-"""Общая настройка тестов.
+"""Shared test setup.
 
-Агенты на импорте собирают модель через LiteLLM-провайдер, которому нужен
-непустой api_key. Чтобы тесты не зависели от реального `.env` разработчика,
-подставляем фиктивные значения в окружение ДО импорта `src.orchestrator.config`
-(переменные окружения имеют приоритет над .env в pydantic-settings).
+On import, agents build their model through the LiteLLM provider, which needs a
+non-empty api_key. So tests don't depend on the developer's real `.env`, we inject
+dummy values into the environment BEFORE importing `src.orchestrator.config`
+(environment variables take priority over .env in pydantic-settings).
 """
 
 from __future__ import annotations
 
 import os
 
-# setdefault: если разработчик/CI задал реальные значения — не перетираем.
+# setdefault: if the developer/CI set real values, don't overwrite them.
 os.environ.setdefault("LITELLM_MASTER_KEY", "test-master-key")
 os.environ.setdefault("LITELLM_BASE_URL", "http://litellm.test/v1")
-# Тесты не должны писать SQLite-файл на диск — общая БД в памяти.
+# Tests must not write a SQLite file to disk — use a shared in-memory DB.
 os.environ.setdefault("DB_PATH", ":memory:")

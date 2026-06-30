@@ -1,10 +1,11 @@
-"""Entrypoint Deck-worker'а.
+"""Deck-worker entrypoint.
 
-Цикл (или один проход при deck_poll_interval_min=0):
-    карточки из To Do -> claim (In Progress) -> агент через оркестратор ->
-    комментарий с результатом -> Done.
+Loop (or a single pass when deck_poll_interval_min=0):
+    cards from To Do -> claim (In Progress) -> agent via the orchestrator ->
+    comment with the result -> Done.
 
-Claim переносом в In Progress защищает от повторной обработки на следующем тике.
+Claiming by moving to In Progress prevents the card from being processed again on
+the next tick.
 """
 
 from __future__ import annotations
@@ -21,11 +22,11 @@ from .client import DeckClient
 
 log = structlog.get_logger()
 
-_REPLY_TIMEOUT = 600  # агент (особенно recon со сканами) может работать минуты
+_REPLY_TIMEOUT = 600  # an agent (especially recon with scans) may run for minutes
 
 
 class OrchestratorClient:
-    """Минимальный клиент к оркестратору (/chat)."""
+    """Minimal client for the orchestrator (/chat)."""
 
     def __init__(self, http: httpx.AsyncClient, base_url: str) -> None:
         self._http = http
@@ -46,7 +47,7 @@ class OrchestratorClient:
 
 
 def agent_for_card(card: dict, mapping: dict[str, str], default: str) -> str:
-    """Выбрать агента по меткам карточки (первая совпавшая метка), иначе default."""
+    """Pick an agent by the card's labels (first matching label), else default."""
     titles = {(label.get("title") or "").lower() for label in (card.get("labels") or [])}
     for label, agent in mapping.items():
         if label in titles:
@@ -55,7 +56,7 @@ def agent_for_card(card: dict, mapping: dict[str, str], default: str) -> str:
 
 
 def card_prompt(card: dict) -> str:
-    """Текст задачи для агента: заголовок + описание."""
+    """Task text for the agent: title + description."""
     title = card.get("title") or ""
     desc = (card.get("description") or "").strip()
     return f"{title}\n\n{desc}".strip() if desc else title
@@ -73,10 +74,11 @@ async def process_card(
     mapping: dict[str, str],
     default: str,
 ) -> None:
-    """Обработать одну карточку: claim -> агент -> комментарий -> Done/Failed.
+    """Process a single card: claim -> agent -> comment -> Done/Failed.
 
-    Успех -> Done. Ошибка -> Failed (если стек есть), иначе карточка остаётся в
-    In Progress — НЕ уезжает в Done, чтобы доска не сообщала о ложном успехе.
+    Success -> Done. Failure -> Failed (if the stack exists), otherwise the card
+    stays in In Progress — it does NOT move to Done, so the board never reports a
+    false success.
     """
     card_id = card["id"]
     agent = agent_for_card(card, mapping, default)
@@ -85,16 +87,16 @@ async def process_card(
     await deck.move_card(board_id, card_id, doing_id)  # claim (In Progress)
     try:
         reply = await orch.chat(card_prompt(card), agent, f"deck:{card_id}")
-        await deck.add_comment(card_id, f"🤖 {agent}:\n\n{reply or '(пустой ответ)'}")
+        await deck.add_comment(card_id, f"🤖 {agent}:\n\n{reply or '(empty response)'}")
         log.info("deck.card.done", card=card_id, agent=agent)
         await deck.move_card(board_id, card_id, done_id)
-    except Exception as exc:  # noqa: BLE001 — одна карточка не должна валить цикл
+    except Exception as exc:  # noqa: BLE001 — one card must not bring down the loop
         log.warning("deck.card.failed", card=card_id, agent=agent, error=str(exc))
-        with contextlib.suppress(Exception):  # коммент не критичен для переноса
-            await deck.add_comment(card_id, f"❌ Не удалось выполнить: {exc}")
+        with contextlib.suppress(Exception):  # the comment is not critical for the move
+            await deck.add_comment(card_id, f"❌ Execution failed: {exc}")
         if failed_id is not None:
             await deck.move_card(board_id, card_id, failed_id)
-        else:  # стека Failed нет — оставляем в In Progress, видно что зависла
+        else:  # no Failed stack — leave it in In Progress so the stall is visible
             log.warning("deck.no_failed_stack", card=card_id)
 
 
@@ -108,7 +110,7 @@ async def run_once(deck: DeckClient, orch: OrchestratorClient) -> None:
     todo = by_title.get(settings.deck_todo_stack)
     doing = by_title.get(settings.deck_doing_stack)
     done = by_title.get(settings.deck_done_stack)
-    # опционален: если стека нет — провал оставит карточку в In Progress
+    # optional: if the stack is absent, a failure leaves the card in In Progress
     failed = by_title.get(settings.deck_failed_stack)
     if not (todo and doing and done):
         log.warning("deck.stacks_missing", have=list(by_title))
@@ -132,13 +134,13 @@ async def run_once(deck: DeckClient, orch: OrchestratorClient) -> None:
                 mapping=mapping,
                 default=settings.deck_default_agent,
             )
-        except Exception as exc:  # noqa: BLE001 — продолжаем со следующей карточкой
+        except Exception as exc:  # noqa: BLE001 — continue with the next card
             log.warning("deck.card.unhandled", card=card.get("id"), error=str(exc))
 
 
 async def run() -> None:
     if not (settings.nextcloud_url and settings.nextcloud_user and settings.nextcloud_app_password):
-        raise SystemExit("Не заданы NEXTCLOUD_URL/USER/APP_PASSWORD для Deck-worker")
+        raise SystemExit("NEXTCLOUD_URL/USER/APP_PASSWORD are not set for the Deck-worker")
 
     interval = settings.deck_poll_interval_min
     async with httpx.AsyncClient() as http:
@@ -153,7 +155,7 @@ async def run() -> None:
         while True:
             try:
                 await run_once(deck, orch)
-            except Exception as exc:  # noqa: BLE001 — цикл не должен падать
+            except Exception as exc:  # noqa: BLE001 — the loop must not crash
                 log.warning("deck.cycle_failed", error=str(exc))
             if interval <= 0:
                 return

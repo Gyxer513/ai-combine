@@ -1,64 +1,64 @@
-# Быстрый старт
+# Quickstart
 
-## Требования
+## Requirements
 
 - Docker + Docker Compose
-- Ключи: Alibaba Model Studio (`ALIBABA_API_KEY`) и/или OpenRouter (`OPENROUTER_API_KEY`)
-- (опционально) Nextcloud для RAG, Deck-задач и планировщика
-- (опционально) Telegram-боты из [@BotFather](https://t.me/BotFather)
+- Keys: Alibaba Model Studio (`ALIBABA_API_KEY`) and/or OpenRouter (`OPENROUTER_API_KEY`)
+- (optional) Nextcloud for RAG, Deck tasks and the planner
+- (optional) Telegram bots from [@BotFather](https://t.me/BotFather)
 
-## Конфигурация
+## Configuration
 
 ```bash
 cp .env.example .env
-# заполни ALIBABA_API_KEY / OPENROUTER_API_KEY / LITELLM_MASTER_KEY
-# сгенерируй токен оркестратора:
+# fill ALIBABA_API_KEY / OPENROUTER_API_KEY / LITELLM_MASTER_KEY
+# generate the orchestrator token:
 openssl rand -hex 32   # -> ORCHESTRATOR_API_TOKEN
 ```
 
-!!! danger "`.env` никогда не коммить"
-    В нём реальные секреты (ключи моделей, токены ботов, app password Nextcloud).
-    Файл — в `.gitignore`; держите права `600`.
+!!! danger "Never commit `.env`"
+    It holds real secrets (model keys, bot tokens, the Nextcloud app password). The file
+    is in `.gitignore`; keep it `600`.
 
-## Запуск
+## Run
 
 ```bash
-# базовый слой: LiteLLM, Qdrant, SearXNG, OpenWebUI
+# base layer: LiteLLM, Qdrant, SearXNG, OpenWebUI
 docker compose up -d
 
-# приложение: оркестратор + sandbox-broker + воркеры
+# application: orchestrator + sandbox-broker + workers
 docker compose --profile app up -d
 
-# Telegram-боты (если заданы токены)
+# Telegram bots (if tokens are set)
 docker compose --profile telegram up -d
 ```
 
-Проверка прокси:
+Check the proxy:
 
 ```bash
 curl http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY"
 ```
 
-Проверка агента (заголовок `Authorization` нужен, если задан `ORCHESTRATOR_API_TOKEN`):
+Check an agent (the `Authorization` header is required if `ORCHESTRATOR_API_TOKEN` is set):
 
 ```bash
 curl -s http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ORCHESTRATOR_API_TOKEN" \
-  -d '{"message": "Кто ты?", "agent": "recon"}'
+  -d '{"message": "Who are you?", "agent": "recon"}'
 ```
 
-## Подключение OpenWebUI
+## Connecting OpenWebUI
 
 Admin Panel → Settings → Connections → OpenAI API → ＋:
 
-- **Base URL:** `http://orchestrator:8000/v1` (в той же compose-сети) или
+- **Base URL:** `http://orchestrator:8000/v1` (same compose network) or
   `http://host.docker.internal:8000/v1`.
-- **Ключ API:** значение `ORCHESTRATOR_API_TOKEN`.
+- **API key:** the value of `ORCHESTRATOR_API_TOKEN`.
 
-В выпадашке моделей появятся `assistant` / `recon` / `coder` / `planner`.
+The model dropdown will show `assistant` / `recon` / `coder` / `planner`.
 
-!!! note "Доступ к оркестратору"
-    Порт оркестратора забинден на `127.0.0.1:8000` — у агентов есть GitHub PAT / RAG /
-    sandbox, наружу его публиковать нельзя. Для доступа из LAN ставьте обратный прокси
-    с TLS и аутентификацией. Подробнее — [Безопасность](security.md).
+!!! note "Orchestrator access"
+    The orchestrator port is bound to `127.0.0.1:8000` — the agents hold a GitHub PAT /
+    RAG / sandbox access, so it must not be exposed. For LAN access put a reverse proxy
+    with TLS and auth in front. See [Security](security.md).

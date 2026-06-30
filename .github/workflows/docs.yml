@@ -1,6 +1,6 @@
 name: docs
 
-# Деплой MkDocs Material на GitHub Pages при изменении доки.
+# Deploy MkDocs Material to GitHub Pages when the docs change.
 on:
   push:
     branches: [main]
@@ -15,7 +15,7 @@ permissions:
   pages: write
   id-token: write
 
-# Параллельные деплои не нужны — отменяем предыдущий незавершённый.
+# No parallel deploys — cancel the previous unfinished one.
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install mkdocs-material
+      - run: pip install mkdocs-material mkdocs-static-i18n
       - run: mkdocs build --strict
       - uses: actions/upload-pages-artifact@v3
         with:

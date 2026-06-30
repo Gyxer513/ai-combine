@@ -1,4 +1,4 @@
-"""Тесты Этапа 6 (sandbox через брокер): клиент брокера и регистрация инструментов."""
+"""Stage 6 tests (sandbox via the broker): broker client and tool registration."""
 
 from __future__ import annotations
 
@@ -27,10 +27,10 @@ async def test_broker_client_returns_output():
 
 async def test_broker_client_surfaces_blocked():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"blocked": True, "reason": "бинарь «sh» не в allowlist"})
+        return httpx.Response(200, json={"blocked": True, "reason": "binary «sh» not in allowlist"})
 
     out = await _client(handler).run("coder", "x | sh")
-    assert "отклонена брокером" in out
+    assert "rejected by the broker" in out
     assert "sh" in out
 
 
@@ -39,7 +39,7 @@ async def test_broker_client_handles_unreachable():
         raise httpx.ConnectError("no route")
 
     out = await _client(handler).run("secops", "nmap -V")
-    assert "недоступен" in out
+    assert "unreachable" in out
 
 
 def test_agents_have_shell_tools():

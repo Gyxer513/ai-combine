@@ -1,8 +1,8 @@
-"""Векторное хранилище поверх Qdrant.
+"""Vector store on top of Qdrant.
 
-Одна коллекция на namespace (`kb_<namespace>`), вектор `embed_dim`, метрика
-cosine. Чанки документа адресуются по `doc_id`, чтобы при переиндексации удалять
-старые версии перед вставкой новых.
+One collection per namespace (`kb_<namespace>`), vector `embed_dim`, cosine
+metric. A document's chunks are addressed by `doc_id`, so that on reindexing we
+delete old versions before inserting new ones.
 """
 
 from __future__ import annotations
@@ -14,13 +14,13 @@ from qdrant_client import AsyncQdrantClient, models
 
 from ..config import settings
 
-# Стабильный namespace для генерации UUID точек из (doc_id, chunk_index).
+# Stable namespace for generating point UUIDs from (doc_id, chunk_index).
 _POINT_NS = uuid.UUID("a1b2c3d4-0000-4000-8000-000000000000")
 
 
 @dataclass(slots=True)
 class Hit:
-    """Результат поиска: текст чанка, источник и скор."""
+    """A search result: the chunk text, its source, and the score."""
 
     text: str
     path: str
@@ -29,12 +29,12 @@ class Hit:
 
 
 def point_id(doc_id: str, chunk_index: int) -> str:
-    """Детерминированный id точки Qdrant для чанка документа."""
+    """Deterministic Qdrant point id for a document chunk."""
     return str(uuid.uuid5(_POINT_NS, f"{doc_id}::{chunk_index}"))
 
 
 class VectorStore:
-    """Обёртка над Qdrant: коллекции по namespace, upsert и поиск."""
+    """A wrapper over Qdrant: collections per namespace, upsert, and search."""
 
     def __init__(self, *, url: str | None = None, dim: int | None = None) -> None:
         self._client = AsyncQdrantClient(url=url or settings.qdrant_url)
@@ -55,7 +55,7 @@ class VectorStore:
             )
 
     async def delete_doc(self, namespace: str, doc_id: str) -> None:
-        """Удалить все чанки документа (перед переиндексацией)."""
+        """Delete all chunks of a document (before reindexing)."""
         name = self._collection(namespace)
         if not await self._client.collection_exists(name):
             return
@@ -70,7 +70,7 @@ class VectorStore:
     async def upsert(
         self, namespace: str, points: list[tuple[str, list[float], dict]]
     ) -> None:
-        """Вставить точки: список (id, вектор, payload)."""
+        """Insert points: a list of (id, vector, payload)."""
         if not points:
             return
         await self.ensure_collection(namespace)
@@ -103,14 +103,14 @@ class VectorStore:
         return hits
 
     async def count(self, namespace: str) -> int | None:
-        """Число точек в коллекции namespace (0 — нет коллекции, None — Qdrant недоступен)."""
+        """Point count in the namespace collection (0 — no collection, None — Qdrant down)."""
         name = self._collection(namespace)
         try:
             if not await self._client.collection_exists(name):
                 return 0
             res = await self._client.count(name, exact=True)
             return res.count
-        except Exception:  # noqa: BLE001 — Qdrant недоступен/ошибка
+        except Exception:  # noqa: BLE001 — Qdrant unavailable/error
             return None
 
     async def close(self) -> None:

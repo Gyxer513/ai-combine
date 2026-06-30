@@ -1,17 +1,17 @@
 # ============================================================
 # AI Combine — docker-compose
 #
-# Этап 1 (инфра, запускается по умолчанию):
+# Stage 1 (infrastructure, started by default):
 #   docker compose up -d litellm qdrant embeddings openwebui
 #
-# Этап 2+ (приложение, профиль app):
+# Stage 2+ (application, app profile):
 #   docker compose --profile app up -d
 #   docker compose --profile telegram up -d
 #   docker compose --profile indexer up -d
 # ============================================================
 
 services:
-  # --- LLM-прокси (Этап 1) ---
+  # --- LLM proxy (Stage 1) ---
   litellm:
     image: ghcr.io/berriai/litellm:main-stable
     ports: ["4000:4000"]
@@ -26,7 +26,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # --- Векторное хранилище (Этап 1, наполняется на Этапе 3) ---
+  # --- Vector store (Stage 1, populated in Stage 3) ---
   qdrant:
     image: qdrant/qdrant:latest
     ports: ["6333:6333"]
@@ -34,10 +34,10 @@ services:
       - ./data/qdrant:/qdrant/storage
     restart: unless-stopped
 
-  # Embeddings берутся через API (Alibaba text-embedding-v4 за LiteLLM) —
-  # self-hosted TEI/BGE-M3 убран, чтобы не жрать RAM на слабом сервере.
+  # Embeddings are obtained via API (Alibaba text-embedding-v4 behind LiteLLM) —
+  # self-hosted TEI/BGE-M3 was removed to avoid eating RAM on a low-spec server.
 
-  # --- Веб-поиск для агентов (SearXNG, self-hosted) ---
+  # --- Web search for agents (SearXNG, self-hosted) ---
   searxng:
     image: searxng/searxng:latest
     ports: ["8888:8080"]
@@ -47,7 +47,7 @@ services:
       - SEARXNG_BASE_URL=http://localhost:8888/
     restart: unless-stopped
 
-  # --- Веб-чат (Этап 1) ---
+  # --- Web chat (Stage 1) ---
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
     ports: ["3000:8080"]
@@ -60,15 +60,15 @@ services:
       - litellm
     restart: unless-stopped
 
-  # --- Оркестратор (Этап 2, профиль app) ---
+  # --- Orchestrator (Stage 2, app profile) ---
   orchestrator:
     build:
       context: .
       dockerfile: docker/orchestrator.Dockerfile
-    # Bind ТОЛЬКО на localhost: оркестратор вызывает агентов с доступом к GitHub
-    # PAT / RAG / sandbox-broker — наружу его публиковать нельзя. Доступ в LAN —
-    # через обратный прокси с TLS+auth. Дополнительно — обязательный Bearer-токен
-    # (ORCHESTRATOR_API_TOKEN), который проверяют /chat, /agents, /v1/*.
+    # Bind ONLY on localhost: the orchestrator invokes agents that have access to the
+    # GitHub PAT / RAG / sandbox-broker — it must not be exposed publicly. LAN access
+    # should go through a reverse proxy with TLS+auth. On top of that, a mandatory
+    # Bearer token (ORCHESTRATOR_API_TOKEN) is checked on /chat, /agents, /v1/*.
     ports: ["127.0.0.1:8000:8000"]
     env_file: .env
     environment:
@@ -77,10 +77,10 @@ services:
       - SEARXNG_URL=http://searxng:8080
       - BROKER_URL=http://sandbox-broker:9000
       - DB_PATH=/app/data/ai_combine.db
-    # docker.sock у оркестратора БОЛЬШЕ НЕТ: команды идут в sandbox-broker по HTTP.
-    # RCE в оркестраторе (инъекция) теперь не даёт прямого доступа к Docker/хосту.
+    # The orchestrator NO LONGER has docker.sock: commands go to sandbox-broker over HTTP.
+    # An RCE in the orchestrator (injection) no longer grants direct access to Docker/host.
     volumes:
-      # SQLite-БД (история диалогов, заметки, метрики) переживает рестарт.
+      # SQLite DB (conversation history, notes, metrics) survives restarts.
       - ./data:/app/data
     depends_on:
       - litellm
@@ -90,10 +90,10 @@ services:
     profiles: ["app"]
     restart: unless-stopped
 
-  # --- Sandbox-broker (Этап 6): ЕДИНСТВЕННЫЙ с docker.sock ---
-  # Крошечная привилегированная поверхность: фиксированный API {profile, command},
-  # hardening и allowlist захардкожены внутри. Наружу порт НЕ публикуется —
-  # доступен только из docker-сети (оркестратору).
+  # --- Sandbox broker (Stage 6): the ONLY service with docker.sock ---
+  # A tiny privileged surface: a fixed API {profile, command}, with hardening and
+  # allowlist hardcoded inside. The port is NOT published externally —
+  # it is reachable only from the docker network (by the orchestrator).
   sandbox-broker:
     build:
       context: .
@@ -104,10 +104,10 @@ services:
     profiles: ["app"]
     restart: unless-stopped
 
-  # --- Telegram-бот (Этап 5, профиль telegram) ---
-  # Без depends_on на orchestrator: бот только поллит Telegram и ходит в
-  # оркестратор по HTTP при сообщении (с ретраем) — на старте тот не нужен.
-  # Cross-profile depends_on иначе ломал бы `--profile telegram` в одиночку.
+  # --- Telegram bot (Stage 5, telegram profile) ---
+  # No depends_on on orchestrator: the bot only polls Telegram and calls the
+  # orchestrator over HTTP on each message (with retry) — it isn't needed at startup.
+  # A cross-profile depends_on would otherwise break running `--profile telegram` alone.
   telegram-bot:
     build:
       context: .
@@ -116,9 +116,9 @@ services:
     profiles: ["telegram"]
     restart: unless-stopped
 
-  # --- RAG-индексатор (Этап 3) ---
-  # В профиле app работает циклом (RAG_INDEX_INTERVAL_MIN, дефолт 60 мин) —
-  # база знаний остаётся свежей. Разовый прогон:
+  # --- RAG indexer (Stage 3) ---
+  # In the app profile it runs in a loop (RAG_INDEX_INTERVAL_MIN, default 60 min) —
+  # keeping the knowledge base fresh. One-off run:
   #   docker compose run --rm -e RAG_INDEX_INTERVAL_MIN=0 rag-indexer
   rag-indexer:
     build:
@@ -137,11 +137,11 @@ services:
     profiles: ["app", "indexer"]
     restart: unless-stopped
 
-  # --- Deck-worker (автономия) ---
-  # Тянет задачи из Nextcloud Deck и выполняет агентами через оркестратор.
-  # В профиле app опрашивает доску каждые DECK_POLL_INTERVAL_MIN (дефолт 2 мин).
-  # Без depends_on на orchestrator (ходит по HTTP с ретраем на каждом тике),
-  # чтобы `--profile deck` поднимался отдельно.
+  # --- Deck worker (autonomy) ---
+  # Pulls tasks from Nextcloud Deck and runs them with agents via the orchestrator.
+  # In the app profile it polls the board every DECK_POLL_INTERVAL_MIN (default 2 min).
+  # No depends_on on orchestrator (it calls over HTTP with retry on each tick),
+  # so that `--profile deck` can be brought up on its own.
   deck-worker:
     build:
       context: .
@@ -153,10 +153,10 @@ services:
     profiles: ["app", "deck"]
     restart: unless-stopped
 
-  # --- Research-worker (assistant: ресёрч заработка) ---
-  # Тот же образ воркера, другой entrypoint. Token-bounded: детерминированный
-  # поиск + один дешёвый LLM-вызов на прогон -> карточки на Deck-доске «Идеи».
-  # Дефолт раз в день (RESEARCH_INTERVAL_MIN=1440). Разовый прогон:
+  # --- Research worker (assistant: income research) ---
+  # Same worker image, different entrypoint. Token-bounded: deterministic
+  # search + one cheap LLM call per run -> cards on the "Ideas" Deck board.
+  # Default once per day (RESEARCH_INTERVAL_MIN=1440). One-off run:
   #   docker compose run --rm -e RESEARCH_INTERVAL_MIN=0 research-worker
   research-worker:
     build:

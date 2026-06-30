@@ -1,4 +1,4 @@
-"""Тесты Этапа 5 (Telegram): whitelist, маппинг ботов на агентов, conversation_id."""
+"""Stage 5 tests (Telegram): whitelist, bot-to-agent mapping, conversation_id."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ def _user(uid: int) -> User:
 
 
 async def _run_mw(allowed: set[int], uid: int, *, allow_bootstrap: bool = False) -> bool:
-    """True, если хендлер был вызван (доступ разрешён)."""
+    """True if the handler was called (access granted)."""
     mw = WhitelistMiddleware(allowed, allow_bootstrap=allow_bootstrap)
     called = {"v": False}
 
@@ -35,18 +35,18 @@ async def test_whitelist_blocks_unlisted():
 
 
 async def test_whitelist_empty_is_fail_closed_by_default():
-    # пустой whitelist без bootstrap -> никого не пускаем
+    # empty whitelist without bootstrap -> no one is let in
     assert await _run_mw(set(), 999) is False
 
 
 async def test_whitelist_empty_bootstrap_allows():
-    # явный bootstrap-режим (дев) -> пускаем
+    # explicit bootstrap mode (dev) -> let them in
     assert await _run_mw(set(), 999, allow_bootstrap=True) is True
 
 
 def test_agent_bot_tokens_mapping():
-    # общий токен -> Assistant; отдельные -> свои агенты; пустые не попадают.
-    # _env_file=None: не подтягивать реальный .env разработчика.
+    # common token -> Assistant; separate ones -> their own agents; empty ones excluded.
+    # _env_file=None: don't pull in the developer's real .env.
     s = Settings(
         _env_file=None,
         telegram_bot_token="A",
@@ -66,7 +66,7 @@ def test_agent_bot_token_assistant_overrides_common():
 def test_conversation_id_changes_after_reset():
     handlers._sessions.clear()
     cid1 = handlers._conversation_id("recon", 42)
-    handlers._sessions[("recon", 42)] = 1  # эмулируем /reset
+    handlers._sessions[("recon", 42)] = 1  # emulate /reset
     cid2 = handlers._conversation_id("recon", 42)
     assert cid1 != cid2
     assert cid1.startswith("tg:recon:42:")
@@ -74,5 +74,5 @@ def test_conversation_id_changes_after_reset():
 
 def test_conversation_id_isolated_per_agent():
     handlers._sessions.clear()
-    # один и тот же chat_id у разных ботов -> разные диалоги
+    # the same chat_id on different bots -> different conversations
     assert handlers._conversation_id("assistant", 7) != handlers._conversation_id("coder", 7)

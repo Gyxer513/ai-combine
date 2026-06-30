@@ -1,20 +1,20 @@
-"""Ужимание истории диалога перед запросом к модели.
+"""Conversation history compaction before a model request.
 
-`compact_history` — процессор для Pydantic AI `ProcessHistory`: вызывается перед
-КАЖДЫМ запросом к модели на обоих путях (Telegram `/chat` и OpenWebUI `/v1`), и
-держит историю в пределах токен-бюджета. Системный промпт (`instructions=`)
-передаётся отдельно и здесь не трогается.
+`compact_history` is a processor for Pydantic AI `ProcessHistory`: it runs before
+EVERY model request on both paths (Telegram `/chat` and OpenWebUI `/v1`) and keeps
+the history within the token budget. The system prompt (`instructions=`) is passed
+separately and is not touched here.
 
-Стратегия — детерминированное окно по бюджету (без LLM-вызова):
-* считаем приблизительные токены, и если влезаем — отдаём как есть;
-* иначе оставляем хвост (самые свежие сообщения) в пределах бюджета;
-* стартовую границу окна сдвигаем до «чистого» пользовательского запроса, чтобы
-  не оставить осиротевший tool-return без своего tool-call (иначе провайдер ругнётся);
-* если что-то отрезали — в начало добавляем честную пометку об усечении.
+Strategy — a deterministic budget-based window (no LLM call):
+* estimate approximate tokens, and if it fits — return it as is;
+* otherwise keep the tail (the most recent messages) within budget;
+* shift the window's start to a "clean" user request, so we don't leave an orphaned
+  tool-return without its tool-call (otherwise the provider complains);
+* if anything was cut — prepend an honest truncation note at the start.
 
-LLM-суммаризация старого хвоста сознательно НЕ делается: на stateless-пути
-OpenWebUI она пересчитывалась бы каждый ход (история приходит от клиента целиком) —
-лишние деньги без кэша. Вернёмся к ней с персистом состояния по conversation_id.
+LLM summarization of the old tail is deliberately NOT done: on the stateless
+OpenWebUI path it would be recomputed every turn (the client sends the full history) —
+wasted money without caching. We'll revisit it once state is persisted by conversation_id.
 """
 
 from __future__ import annotations
@@ -32,17 +32,17 @@ from pydantic_ai.messages import (
 from ..config import settings
 
 _TRIM_MARKER = (
-    "[Системе: ранняя часть этого диалога свёрнута для экономии контекста. "
-    "Если нужны детали из начала разговора — попроси пользователя напомнить.]"
+    "[To the system: the early part of this conversation was collapsed to save context. "
+    "If you need details from the start of the conversation, ask the user to recap.]"
 )
 
-# Грубая оценка: ~4 символа на токен + накладные на разметку сообщения.
+# Rough estimate: ~4 characters per token + overhead for message framing.
 _CHARS_PER_TOKEN = 4
 _MSG_OVERHEAD_TOKENS = 4
 
 
 def _content_text(content: object) -> str:
-    """Достать текст из content части (строка или список мультимодальных кусков)."""
+    """Extract text from a content part (a string or a list of multimodal pieces)."""
     if isinstance(content, str):
         return content
     if isinstance(content, Sequence):
@@ -51,7 +51,7 @@ def _content_text(content: object) -> str:
 
 
 def _part_text(part: object) -> str:
-    """Текстовое представление одной части сообщения для оценки размера."""
+    """Text representation of a single message part for size estimation."""
     content = getattr(part, "content", None)
     if content is not None:
         return _content_text(content)
@@ -62,16 +62,16 @@ def _part_text(part: object) -> str:
 
 
 def _message_tokens(msg: ModelMessage) -> int:
-    """Приблизительные токены одного сообщения."""
+    """Approximate token count of a single message."""
     chars = sum(len(_part_text(p)) for p in msg.parts)
     return chars // _CHARS_PER_TOKEN + _MSG_OVERHEAD_TOKENS
 
 
 def _is_clean_user_request(msg: ModelMessage) -> bool:
-    """ModelRequest с пользовательским вводом и БЕЗ tool-return.
+    """A ModelRequest with user input and WITHOUT a tool-return.
 
-    Такое сообщение безопасно делать первым в окне: оно не ссылается на
-    предыдущий (возможно отрезанный) tool-call.
+    Such a message is safe to make first in the window: it doesn't reference a
+    previous (possibly cut) tool-call.
     """
     if not isinstance(msg, ModelRequest):
         return False
@@ -81,10 +81,10 @@ def _is_clean_user_request(msg: ModelMessage) -> bool:
 
 
 def _with_marker(first: ModelMessage) -> list[ModelMessage]:
-    """Вернуть стартовое(ые) сообщение(я) окна с добавленной пометкой об усечении.
+    """Return the window's starting message(s) with the truncation note added.
 
-    Если первое сообщение — ModelRequest, вкладываем пометку в него же (не плодим
-    лишний turn). Иначе кладём пометку отдельным запросом перед ним.
+    If the first message is a ModelRequest, embed the note into it (so we don't add
+    an extra turn). Otherwise, place the note as a separate request before it.
     """
     marker = UserPromptPart(content=_TRIM_MARKER)
     if isinstance(first, ModelRequest):
@@ -93,7 +93,7 @@ def _with_marker(first: ModelMessage) -> list[ModelMessage]:
 
 
 async def compact_history(messages: list[ModelMessage]) -> list[ModelMessage]:
-    """Ужать историю до токен-бюджета (см. модульный docstring)."""
+    """Compact the history down to the token budget (see the module docstring)."""
     if not messages:
         return messages
 
@@ -101,7 +101,7 @@ async def compact_history(messages: list[ModelMessage]) -> list[ModelMessage]:
     if sum(_message_tokens(m) for m in messages) <= budget:
         return messages
 
-    # Собираем хвост в пределах бюджета (хотя бы последнее сообщение — всегда).
+    # Collect the tail within budget (at least the last message — always).
     kept: list[ModelMessage] = []
     used = 0
     for msg in reversed(messages):
@@ -112,11 +112,11 @@ async def compact_history(messages: list[ModelMessage]) -> list[ModelMessage]:
         used += tokens
     kept.reverse()
 
-    # Сдвигаем начало окна до «чистого» пользовательского запроса.
+    # Shift the window's start to a "clean" user request.
     while len(kept) > 1 and not _is_clean_user_request(kept[0]):
         kept.pop(0)
 
-    if len(kept) == len(messages):  # по факту ничего не отрезали
+    if len(kept) == len(messages):  # nothing was actually cut
         return messages
 
     return [*_with_marker(kept[0]), *kept[1:]]

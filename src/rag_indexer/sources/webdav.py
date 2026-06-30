@@ -1,8 +1,8 @@
-"""Источник: файлы Nextcloud через WebDAV.
+"""Source: Nextcloud files via WebDAV.
 
-Папки и их namespace задаются в `rag_webdav_folders` (CSV "/путь:namespace").
-Индексируются текстовые форматы (md/txt/markdown/html). webdav4 синхронный —
-запускаем в треде через asyncio.to_thread.
+Folders and their namespace are configured in `rag_webdav_folders` (CSV "/path:namespace").
+Text formats (md/txt/markdown/html) are indexed. webdav4 is synchronous — we run it in a
+thread via asyncio.to_thread.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def _client() -> Client:
 
 
 def _walk_folder(folder: str, namespace: str) -> list[RagDocument]:
-    """Синхронно обойти папку и прочитать поддерживаемые файлы."""
+    """Walk a folder synchronously and read the supported files."""
     client = _client()
     docs: list[RagDocument] = []
     stack = [folder.strip("/")]
@@ -36,13 +36,13 @@ def _walk_folder(folder: str, namespace: str) -> list[RagDocument]:
         path = stack.pop()
         try:
             entries = client.ls(path, detail=True)
-        except Exception as exc:  # noqa: BLE001 — папки может не быть
+        except Exception as exc:  # noqa: BLE001 — the folder may not exist
             log.warning("webdav.ls_failed", path=path, error=str(exc))
             continue
         for item in entries:
             name = item.get("name", "").rstrip("/")
             if not name or name == path.rstrip("/"):
-                continue  # сама папка в выдаче ls
+                continue  # the folder itself in the ls listing
             if item.get("type") == "directory":
                 stack.append(name)
                 continue
@@ -70,7 +70,7 @@ def _walk_folder(folder: str, namespace: str) -> list[RagDocument]:
 
 
 async def fetch_webdav(_http=None) -> list[RagDocument]:
-    """Забрать документы из всех настроенных WebDAV-папок."""
+    """Fetch documents from all configured WebDAV folders."""
     folders = settings.webdav_folders
     if not (settings.nextcloud_url and folders):
         log.info("webdav.skip", reason="no folders configured")

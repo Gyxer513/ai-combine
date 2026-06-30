@@ -1,4 +1,4 @@
-"""Тесты Bearer-аутентификации оркестратора (require_token)."""
+"""Orchestrator Bearer authentication tests (require_token)."""
 
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ from src.orchestrator.config import settings
 
 
 async def test_require_token_disabled_when_empty(monkeypatch):
-    # пустой токен -> enforcement выключен, любой запрос проходит
+    # empty token -> enforcement disabled, any request passes
     monkeypatch.setattr(settings, "orchestrator_api_token", "")
-    await require_token(authorization=None)  # не должно бросить
+    await require_token(authorization=None)  # must not raise
 
 
 async def test_require_token_accepts_correct_bearer(monkeypatch):
     monkeypatch.setattr(settings, "orchestrator_api_token", "secret123")
-    await require_token(authorization="Bearer secret123")  # ок
+    await require_token(authorization="Bearer secret123")  # ok
 
 
 @pytest.mark.parametrize(

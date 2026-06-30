@@ -1,4 +1,4 @@
-"""Дымовые тесты каркаса оркестратора (Этап 1)."""
+"""Smoke tests for the orchestrator skeleton."""
 
 from fastapi.testclient import TestClient
 

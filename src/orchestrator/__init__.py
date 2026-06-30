@@ -1,1 +1,1 @@
-"""AI Combine — оркестратор агентов."""
+"""AI Combine — the agent orchestrator."""

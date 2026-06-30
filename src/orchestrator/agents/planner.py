@@ -1,10 +1,10 @@
 """🧭 Planner — Orchestrator Agent.
 
-Принимает ТЗ проекта и режет его на дочерние задачи для остальных агентов
-(recon / coder / assistant), раскладывая их карточками на Deck-доску задач — там
-их подхватывает deck-worker. Планирование требует сильного ризонинга, поэтому
-основная модель `qwen-max`, резерв `qwen-plus`. Чувствительность INTERNAL
-(в ТЗ может быть приватный контекст проекта).
+Takes a project spec and splits it into subtasks for the other agents
+(recon / coder / assistant), laying them out as cards on a Deck task board — where
+the deck-worker picks them up. Planning requires strong reasoning, so the primary
+model is `qwen-max`, with `qwen-plus` as backup. Sensitivity INTERNAL
+(a spec may contain private project context).
 """
 
 from __future__ import annotations
@@ -26,16 +26,16 @@ NAME = "planner"
 TITLE = "🧭 Planner"
 SENSITIVITY = DataSensitivity.INTERNAL
 
-# Декомпозиция = ризонинг: qwen-max основная, резерв qwen-plus.
+# Decomposition = reasoning: qwen-max primary, qwen-plus backup.
 MODELS = ["qwen-max", "qwen-plus"]
 
 agent = Agent(
     build_model(MODELS),
     deps_type=AgentDeps,
-    instructions=load_prompt(NAME),  # см. пояснение в assistant.py
+    instructions=load_prompt(NAME),  # see the explanation in assistant.py
     name=NAME,
     capabilities=history_capabilities(),
 )
 register_common_tools(agent)
 register_rag_tool(agent, namespace="personal")
-register_planner_tool(agent)  # slice_project: дочерние карточки на Deck-доску
+register_planner_tool(agent)  # slice_project: subtask cards onto the Deck board

@@ -1,4 +1,4 @@
-"""Тесты sandbox-broker: hardened-раннер и авторитетная проверка allowlist."""
+"""Sandbox-broker tests: the hardened runner and authoritative allowlist check."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def _patch_docker(monkeypatch) -> _FakeClient:
     return fake
 
 
-# --- hardened-раннер (перенос из test_stage6) ---
+# --- hardened runner (moved from test_stage6) ---
 
 
 async def test_sandbox_runs_and_hardening_applied(monkeypatch):
@@ -77,10 +77,10 @@ async def test_sandbox_docker_unavailable(monkeypatch):
 
     monkeypatch.setattr(docker, "from_env", boom)
     out = await SandboxRunner(network=False).run("echo hi")
-    assert "недоступен" in out
+    assert "unavailable" in out
 
 
-# --- /run: авторитетная проверка allowlist ---
+# --- /run: authoritative allowlist check ---
 
 
 def test_run_allows_secops_command(monkeypatch):
@@ -95,9 +95,9 @@ def test_run_allows_secops_command(monkeypatch):
 
 
 def test_run_blocks_interpreter_before_docker(monkeypatch):
-    # docker.from_env упадёт, если его вызовут — но guard обязан отсечь раньше
+    # docker.from_env would fail if called — but the guard must cut it off earlier
     def boom():
-        raise AssertionError("docker не должен вызываться для заблокированной команды")
+        raise AssertionError("docker must not be called for a blocked command")
 
     monkeypatch.setattr(docker, "from_env", boom)
     client = TestClient(app)
@@ -112,4 +112,4 @@ def test_run_unknown_profile():
     resp = client.post("/run", json={"profile": "root", "command": "nmap -V"})
     data = resp.json()
     assert data["blocked"] is True
-    assert "профиль" in data["reason"]
+    assert "profile" in data["reason"]

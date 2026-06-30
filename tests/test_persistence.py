@@ -1,4 +1,4 @@
-"""Тесты SQLite-персистентности: данные переживают «рестарт» (новый стор на файле)."""
+"""SQLite persistence tests: data survives a "restart" (a new store on the file)."""
 
 from __future__ import annotations
 
@@ -20,19 +20,19 @@ def test_history_survives_new_store(tmp_path):
     db_file = str(tmp_path / "t.db")
 
     store1 = ConversationStore(Database(db_file))
-    store1.extend_history("c1", _msgs("привет"))
+    store1.extend_history("c1", _msgs("hello"))
 
-    # «рестарт»: новый Database + стор на том же файле
+    # "restart": a new Database + store on the same file
     store2 = ConversationStore(Database(db_file))
     hist = store2.history("c1")
     assert len(hist) == 2
-    assert hist[0].parts[0].content == "привет"
+    assert hist[0].parts[0].content == "hello"
 
 
 def test_notes_survive_new_store(tmp_path):
     db_file = str(tmp_path / "n.db")
-    ConversationStore(Database(db_file)).save_note("c1", "city", "Владивосток")
-    assert ConversationStore(Database(db_file)).get_note("c1", "city") == "Владивосток"
+    ConversationStore(Database(db_file)).save_note("c1", "city", "Vladivostok")
+    assert ConversationStore(Database(db_file)).get_note("c1", "city") == "Vladivostok"
 
 
 def test_clear_removes_history_and_notes(tmp_path):
@@ -59,7 +59,7 @@ def test_metrics_survive_new_instance(tmp_path):
     m1.record("recon", 100, 50)
     m1.record("recon", 10, 5)
 
-    m2 = Metrics(Database(db_file))  # «рестарт»
+    m2 = Metrics(Database(db_file))  # "restart"
     a = m2.for_agent("recon")
     assert a.requests == 2
     assert a.input_tokens == 110
@@ -68,8 +68,8 @@ def test_metrics_survive_new_instance(tmp_path):
 
 def test_stats_counts_conversations_and_messages(tmp_path):
     store = ConversationStore(Database(str(tmp_path / "s.db")))
-    store.extend_history("c1", _msgs("a"))  # 2 сообщения
-    store.extend_history("c2", _msgs("b"))  # 2 сообщения
+    store.extend_history("c1", _msgs("a"))  # 2 messages
+    store.extend_history("c2", _msgs("b"))  # 2 messages
     convs, messages = store.stats()
     assert convs == 2
     assert messages == 4

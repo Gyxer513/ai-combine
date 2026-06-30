@@ -1,4 +1,4 @@
-"""Тесты GitHub-клиента coder (через httpx MockTransport)."""
+"""Tests for the coder GitHub client (via httpx MockTransport)."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ async def test_read_file_raw_wrapped():
         return httpx.Response(200, text="print('hi')")
 
     out = await _client(handler).read_file("app/main.py")
-    assert out == "print('hi')"  # клиент отдаёт сырой текст; обёртка — на уровне tool
+    assert out == "print('hi')"  # client returns raw text; wrapping happens at the tool level
 
 
 async def test_commit_files_creates_branch_and_writes():
@@ -41,7 +41,7 @@ async def test_commit_files_creates_branch_and_writes():
     def handler(request: httpx.Request) -> httpx.Response:
         url, m = str(request.url), request.method
         if "/git/ref/heads/feature%2Fx" in url or "/git/ref/heads/feature/x" in url:
-            return httpx.Response(404)  # ветки ещё нет
+            return httpx.Response(404)  # branch does not exist yet
         if "/git/ref/heads/main" in url:
             return httpx.Response(200, json={"object": {"sha": "basesha"}})
         if url.endswith("/git/refs") and m == "POST":
@@ -49,7 +49,7 @@ async def test_commit_files_creates_branch_and_writes():
             assert b"refs/heads/feature/x" in request.read()
             return httpx.Response(201, json={})
         if "/contents/" in url and m == "GET":
-            return httpx.Response(404)  # файла нет -> create
+            return httpx.Response(404)  # file does not exist -> create
         if "/contents/" in url and m == "PUT":
             body = request.read().decode()
             calls["puts"].append(body)
@@ -61,7 +61,7 @@ async def test_commit_files_creates_branch_and_writes():
     )
     assert n == 1
     assert calls["branch_created"] is True
-    # контент уходит в base64
+    # content goes out as base64
     assert base64.b64encode(b"code").decode() in calls["puts"][0]
 
 

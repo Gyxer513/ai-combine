@@ -1,8 +1,7 @@
-"""Embeddings через API (Alibaba text-embedding-v4 за LiteLLM).
+"""Embeddings via API (Alibaba text-embedding-v4 behind LiteLLM).
 
-Без локального TEI/BGE-M3 — экономим RAM. Один HTTP-клиент к `/v1/embeddings`
-LiteLLM, тем же мастер-ключом. Используется и индексатором, и инструментом
-поиска на лету.
+No local TEI/BGE-M3 — saving RAM. A single HTTP client to LiteLLM's `/v1/embeddings`,
+using the same master key. Used by both the indexer and the on-the-fly search tool.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from ..config import settings
 
 
 class EmbeddingClient:
-    """Клиент к LiteLLM /v1/embeddings."""
+    """Client for LiteLLM /v1/embeddings."""
 
     def __init__(
         self,
@@ -29,7 +28,7 @@ class EmbeddingClient:
         self._key = api_key or settings.litellm_master_key
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Вернуть векторы для списка текстов (в исходном порядке)."""
+        """Return vectors for a list of texts (in the original order)."""
         if not texts:
             return []
         resp = await self._http.post(
@@ -43,6 +42,6 @@ class EmbeddingClient:
         return [it["embedding"] for it in items]
 
     async def embed_one(self, text: str) -> list[float]:
-        """Вектор одного текста."""
+        """Vector for a single text."""
         vectors = await self.embed([text])
         return vectors[0]

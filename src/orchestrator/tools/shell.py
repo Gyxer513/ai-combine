@@ -1,12 +1,13 @@
-"""Инструменты исполнения команд: клиент к sandbox-broker.
+"""Command execution tools: client to the sandbox broker.
 
-Оркестратор САМ не порождает контейнеры и не имеет доступа к docker.sock —
-он отправляет команду в `sandbox-broker` по HTTP. Брокер (единственный с
-docker.sock) применяет hardening и авторитетно проверяет allowlist по профилю.
+The orchestrator does NOT spawn containers itself and has no access to docker.sock —
+it sends the command to the `sandbox-broker` over HTTP. The broker (the only one
+with docker.sock) applies hardening and authoritatively validates the allowlist by
+profile.
 
-Здесь — клиент (`BrokerClient`) и регистрация инструмента на агенте. Локальный
-`CommandGuard` оставлен как быстрый отказ до сетевого вызова (UX); настоящая
-граница безопасности — на стороне брокера.
+This module holds the client (`BrokerClient`) and the tool registration on the
+agent. The local `CommandGuard` is kept as a fast reject before the network call
+(UX); the real security boundary is on the broker side.
 """
 
 from __future__ import annotations
@@ -22,14 +23,14 @@ log = structlog.get_logger()
 
 
 class BrokerClient:
-    """HTTP-клиент к sandbox-broker."""
+    """HTTP client to the sandbox broker."""
 
     def __init__(self, http: httpx.AsyncClient, *, base_url: str | None = None) -> None:
         self._http = http
         self._base_url = (base_url or settings.broker_url).rstrip("/")
 
     async def run(self, profile: str, command: str) -> str:
-        """Отправить команду брокеру, вернуть вывод (или сообщение об ошибке)."""
+        """Send the command to the broker, return the output (or an error message)."""
         try:
             resp = await self._http.post(
                 f"{self._base_url}/run",
@@ -40,9 +41,9 @@ class BrokerClient:
             data = resp.json()
         except httpx.HTTPError as exc:
             log.warning("broker.unreachable", profile=profile, error=str(exc))
-            return f"[sandbox-broker недоступен: {exc}]"
+            return f"[sandbox-broker unreachable: {exc}]"
         if data.get("blocked"):
-            return f"[команда отклонена брокером: {data.get('reason', '')}]"
+            return f"[command rejected by the broker: {data.get('reason', '')}]"
         return data.get("output", "")
 
 
@@ -55,10 +56,10 @@ def register_shell_tool(
     what: str,
     network_note: str,
 ) -> None:
-    """Навесить sandbox-инструмент, исполняющийся через брокер.
+    """Attach a sandbox tool that runs through the broker.
 
-    `profile` — секция брокера ("secops"/"coder"): задаёт сеть и allowlist на
-    стороне брокера. `allowed` — тот же allowlist для локального быстрого отказа.
+    `profile` — broker section ("secops"/"coder"): defines the network and allowlist
+    on the broker side. `allowed` — the same allowlist for the local fast reject.
     """
     guard = CommandGuard(allowed)
 
@@ -67,23 +68,24 @@ def register_shell_tool(
         if not ok:
             log.warning("sandbox.blocked_local", tool=name, reason=reason, command=command)
             return (
-                f"[команда отклонена политикой безопасности: {reason}]\n"
-                f"Разрешены только: {', '.join(sorted(allowed))}. "
-                "Переформулируй под один разрешённый бинарь без подстановок."
+                f"[command rejected by the security policy: {reason}]\n"
+                f"Only these are allowed: {', '.join(sorted(allowed))}. "
+                "Rephrase it as a single allowed binary without substitutions."
             )
         if ctx.deps.broker is None:
-            return "[sandbox недоступен: broker не сконфигурирован]"
+            return "[sandbox unavailable: broker is not configured]"
         log.info("sandbox.run", tool=name, profile=profile)
         output = await ctx.deps.broker.run(profile, command)
-        # Вывод команды — недоверенный (может содержать инъекцию из ответа цели).
+        # Command output is untrusted (it may contain an injection from the target's
+        # response).
         return wrap_untrusted(f"{name}_output", output)
 
     shell_tool.__name__ = name
     shell_tool.__doc__ = (
-        f"{what} в изолированном sandbox ({network_note}). "
-        "Принимает одну shell-команду, возвращает exit-код и вывод.\n"
-        f"Разрешены только бинари: {', '.join(sorted(allowed))}. "
-        "Без подстановок ($(), ``), без цепочек на неразрешённый бинарь.\n\n"
-        "Args:\n    command: Команда для bash -lc."
+        f"{what} in an isolated sandbox ({network_note}). "
+        "Takes a single shell command, returns the exit code and output.\n"
+        f"Only these binaries are allowed: {', '.join(sorted(allowed))}. "
+        "No substitutions ($(), ``), no chains to a disallowed binary.\n\n"
+        "Args:\n    command: Command for bash -lc."
     )
     agent.tool(shell_tool)

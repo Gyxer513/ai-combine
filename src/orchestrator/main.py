@@ -1,7 +1,7 @@
-"""FastAPI entrypoint оркестратора.
+"""FastAPI entrypoint for the orchestrator.
 
-Этап 1: health-check и проверка связи с LiteLLM.
-Этап 2: агенты и /chat + OpenAI-совместимый /v1 (см. api/routes.py).
+Stage 1: health-check and LiteLLM connectivity check.
+Stage 2: agents and /chat + OpenAI-compatible /v1 (see api/routes.py).
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ async def lifespan(app: FastAPI):
     if not settings.orchestrator_api_token:
         log.warning(
             "orchestrator.no_api_token",
-            msg="ORCHESTRATOR_API_TOKEN не задан — /chat и /v1/* без аутентификации; "
-            "полагаемся только на bind localhost. Задай токен для прода.",
+            msg="ORCHESTRATOR_API_TOKEN is not set — /chat and /v1/* run without auth; "
+            "relying on bind localhost alone. Set a token for production.",
         )
     log.info("orchestrator.start", litellm=settings.litellm_base_url)
     try:
@@ -47,7 +47,7 @@ async def health() -> dict[str, str]:
 
 @app.get("/health/litellm")
 async def health_litellm() -> dict[str, object]:
-    """Проверка, что прокси отвечает и отдаёт список моделей."""
+    """Check that the proxy responds and returns a model list."""
     url = f"{settings.litellm_base_url.rstrip('/')}/models"
     headers = {"Authorization": f"Bearer {settings.litellm_master_key}"}
     try:

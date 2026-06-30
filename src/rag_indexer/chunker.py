@@ -1,7 +1,7 @@
-"""Разбиение текста на чанки фиксированного размера с перекрытием.
+"""Split text into fixed-size chunks with overlap.
 
-Размер считается в токенах (tiktoken `cl100k_base` как универсальный счётчик).
-Перекрытие сохраняет контекст на границах чанков.
+Size is measured in tokens (tiktoken `cl100k_base` as a universal counter).
+The overlap preserves context across chunk boundaries.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ _enc = tiktoken.get_encoding("cl100k_base")
 def chunk_text(
     text: str, *, max_tokens: int | None = None, overlap: int | None = None
 ) -> list[str]:
-    """Разбить текст на чанки ~max_tokens токенов с перекрытием overlap."""
+    """Split text into chunks of ~max_tokens tokens with an overlap of `overlap`."""
     max_tokens = max_tokens or settings.rag_chunk_tokens
     overlap = overlap or settings.rag_chunk_overlap
     tokens = _enc.encode(text)

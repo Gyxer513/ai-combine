@@ -1,1 +1,1 @@
-"""Источники документов для индексатора: Nextcloud Notes и WebDAV-папки."""
+"""Document sources for the indexer: Nextcloud Notes and WebDAV folders."""

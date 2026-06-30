@@ -1,4 +1,4 @@
-"""Общие типы индексатора."""
+"""Shared indexer types."""
 
 from __future__ import annotations
 
@@ -8,15 +8,15 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class RagDocument:
-    """Документ из источника (Notes/WebDAV) до чанкинга."""
+    """A document from a source (Notes/WebDAV) before chunking."""
 
     namespace: str
-    doc_id: str  # стабильный id: 'note:123' / 'webdav:/Knowledge/x.md'
+    doc_id: str  # stable id: 'note:123' / 'webdav:/Knowledge/x.md'
     source: str  # 'notes' | 'webdav'
-    path: str  # человекочитаемое расположение
+    path: str  # human-readable location
     text: str
-    modified: str  # iso/epoch как строка
+    modified: str  # iso/epoch as a string
 
     def content_hash(self) -> str:
-        """Хэш содержимого — чтобы пропускать неизменённые документы."""
+        """Content hash — to skip unchanged documents."""
         return hashlib.sha256(self.text.encode("utf-8")).hexdigest()

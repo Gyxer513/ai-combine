@@ -1,1 +1,1 @@
-"""RAG-индексатор: Nextcloud WebDAV -> chunks -> TEI embed -> Qdrant. Реализация — Этап 3."""
+"""RAG indexer: Nextcloud WebDAV -> chunks -> TEI embed -> Qdrant. Implemented in Stage 3."""

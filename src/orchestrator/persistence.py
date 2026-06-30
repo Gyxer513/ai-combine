@@ -1,13 +1,13 @@
-"""Персистентное хранилище на SQLite.
+"""Persistent storage on SQLite.
 
-Один файл БД (`db_path`, дефолт `data/ai_combine.db`) переживает рестарт: история
-диалогов, scratchpad-заметки и счётчики метрик. До этого всё было in-memory и
-сбрасывалось при перезапуске оркестратора.
+A single DB file (`db_path`, default `data/ai_combine.db`) survives restarts:
+conversation history, scratchpad notes, and metric counters. Previously everything was
+in-memory and reset whenever the orchestrator restarted.
 
-`Database` — тонкая обёртка над `sqlite3`: одно соединение (WAL,
-`check_same_thread=False`) под общим `Lock`. Нагрузка личная и низкая, поэтому
-синхронных вызовов из async-хендлеров достаточно — операции SQLite субмиллисекундны.
-Конкретные таблицы обслуживают `ConversationStore` и `Metrics`.
+`Database` is a thin wrapper over `sqlite3`: one connection (WAL,
+`check_same_thread=False`) under a shared `Lock`. The load is personal and low, so
+synchronous calls from async handlers are enough — SQLite operations are submillisecond.
+The specific tables are served by `ConversationStore` and `Metrics`.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS metrics (
 
 
 class Database:
-    """Соединение SQLite со схемой и потокобезопасной записью."""
+    """A SQLite connection with schema and thread-safe writes."""
 
     def __init__(self, path: str) -> None:
         if path != ":memory:":
@@ -58,7 +58,7 @@ class Database:
             self._conn.commit()
 
     def execute(self, sql: str, params: Iterable = ()) -> None:
-        """Запись (INSERT/UPDATE/DELETE) с коммитом."""
+        """Write (INSERT/UPDATE/DELETE) with a commit."""
         with self._lock:
             self._conn.execute(sql, tuple(params))
             self._conn.commit()
@@ -78,5 +78,5 @@ class Database:
 
 @lru_cache(maxsize=1)
 def shared_db() -> Database:
-    """Единая на процесс БД оркестратора."""
+    """Process-wide orchestrator database."""
     return Database(settings.db_path)

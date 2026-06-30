@@ -1,11 +1,11 @@
-"""Дашборд оркестратора: один экран статуса (тот же сервис, отдельный роут).
+"""Orchestrator dashboard: a single status screen (same service, separate route).
 
-* `GET /api/dashboard` — JSON-агрегат: здоровье сервисов, агенты + счётчики
-  использования, размеры RAG-коллекций, активные разговоры.
-* `GET /dashboard` — самодостаточная HTML-страница (inline, без статики и внешних
-  зависимостей), которая опрашивает `/api/dashboard` и авто-обновляется.
+* `GET /api/dashboard` — a JSON aggregate: service health, agents + usage
+  counters, RAG collection sizes, active conversations.
+* `GET /dashboard` — a self-contained HTML page (inline, no static files or external
+  dependencies) that polls `/api/dashboard` and auto-refreshes.
 
-Живёт на порту оркестратора (8000) — отдельная страница, не отдельный сервис.
+Lives on the orchestrator port (8000) — a separate page, not a separate service.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from ..metrics import shared_metrics
 
 router = APIRouter()
 
-# namespace RAG по агентам (см. register_rag_tool в модулях агентов).
+# RAG namespace per agent (see register_rag_tool in the agent modules).
 _RAG_NAMESPACES = {
     "assistant": "personal",
     "recon": "security",
@@ -33,7 +33,7 @@ _RAG_NAMESPACES = {
 
 
 async def _probe(http: httpx.AsyncClient, url: str, *, headers: dict | None = None) -> bool:
-    """True, если сервис ответил (любой статус < 500)."""
+    """True if the service responded (any status < 500)."""
     try:
         resp = await http.get(url, headers=headers, timeout=5)
         return resp.status_code < 500
@@ -42,7 +42,7 @@ async def _probe(http: httpx.AsyncClient, url: str, *, headers: dict | None = No
 
 
 async def _services(http: httpx.AsyncClient) -> list[dict]:
-    """Здоровье зависимостей (опрашиваются параллельно)."""
+    """Dependency health (probed in parallel)."""
     litellm = settings.litellm_base_url.rstrip("/")
     checks = {
         "LiteLLM": _probe(
@@ -59,20 +59,20 @@ async def _services(http: httpx.AsyncClient) -> list[dict]:
 
 
 async def _rag() -> list[dict]:
-    """Размеры RAG-коллекций по namespace (None — Qdrant недоступен)."""
+    """RAG collection sizes per namespace (None — Qdrant unavailable)."""
     vstore = shared_vstore()
     names = sorted(set(_RAG_NAMESPACES.values()))
     try:
         counts = await asyncio.wait_for(
             asyncio.gather(*(vstore.count(ns) for ns in names)), timeout=6
         )
-    except Exception:  # noqa: BLE001 — таймаут/недоступность Qdrant, дашборд не падает
+    except Exception:  # noqa: BLE001 — Qdrant timeout/unavailable, dashboard stays up
         counts = [None] * len(names)
     return [{"namespace": ns, "points": c} for ns, c in zip(names, counts, strict=True)]
 
 
 def _agents() -> list[dict]:
-    """Агенты + их счётчики использования."""
+    """Agents + their usage counters."""
     metrics = shared_metrics()
     out: list[dict] = []
     for card in REGISTRY.values():
@@ -96,7 +96,7 @@ def _agents() -> list[dict]:
 
 @router.get("/api/dashboard")
 async def api_dashboard(request: Request) -> dict:
-    """JSON-срез состояния комбайна."""
+    """A JSON snapshot of the combine's state."""
     http: httpx.AsyncClient = request.app.state.http
     services, rag = await asyncio.gather(_services(http), _rag())
     conversations, messages = shared_store().stats()
@@ -112,16 +112,16 @@ async def api_dashboard(request: Request) -> dict:
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page() -> str:
-    """HTML-страница дашборда."""
+    """The dashboard HTML page."""
     return _PAGE
 
 
 _PAGE = """<!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Combine — дашборд</title>
+<title>AI Combine — dashboard</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -151,39 +151,39 @@ _PAGE = """<!doctype html>
 </head>
 <body>
   <h1>🐜 AI Combine</h1>
-  <div class="sub">Дашборд · обновляется каждые 10 с · <span id="uptime"></span></div>
+  <div class="sub">Dashboard · refreshes every 10 s · <span id="uptime"></span></div>
   <div class="grid">
-    <div class="card"><h2>Сервисы</h2><div id="services"></div></div>
-    <div class="card"><h2>База знаний (RAG)</h2><div id="rag"></div>
-      <div class="row"><span class="muted">Разговоры в памяти</span><span id="convs" class="big"></span></div>
+    <div class="card"><h2>Services</h2><div id="services"></div></div>
+    <div class="card"><h2>Knowledge base (RAG)</h2><div id="rag"></div>
+      <div class="row"><span class="muted">Conversations in memory</span><span id="convs" class="big"></span></div>
     </div>
   </div>
-  <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#8b909a;margin:22px 0 12px">Агенты</h2>
+  <h2 style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#8b909a;margin:22px 0 12px">Agents</h2>
   <div class="grid" id="agents"></div>
 <script>
-const fmt = n => n==null ? "—" : n.toLocaleString("ru-RU");
-const ago = ts => { if(!ts) return "не использовался";
+const fmt = n => n==null ? "—" : n.toLocaleString("en-US");
+const ago = ts => { if(!ts) return "never used";
   const s = Math.floor(Date.now()/1000 - ts);
-  if(s<60) return s+" с назад"; if(s<3600) return Math.floor(s/60)+" мин назад";
-  if(s<86400) return Math.floor(s/3600)+" ч назад"; return Math.floor(s/86400)+" д назад"; };
+  if(s<60) return s+" s ago"; if(s<3600) return Math.floor(s/60)+" min ago";
+  if(s<86400) return Math.floor(s/3600)+" h ago"; return Math.floor(s/86400)+" d ago"; };
 const secCls = s => "sec-"+(s||"").toLowerCase();
 
 async function load(){
   let d;
   try { d = await (await fetch("/api/dashboard")).json(); }
   catch(e){ document.getElementById("services").innerHTML =
-    '<div class="err">оркестратор недоступен</div>'; return; }
+    '<div class="err">orchestrator unavailable</div>'; return; }
 
   const up = d.uptime_sec;
   document.getElementById("uptime").textContent =
-    "uptime " + (up<3600 ? Math.floor(up/60)+" мин" : Math.floor(up/3600)+" ч "+Math.floor(up%3600/60)+" мин");
+    "uptime " + (up<3600 ? Math.floor(up/60)+" min" : Math.floor(up/3600)+" h "+Math.floor(up%3600/60)+" min");
 
   document.getElementById("services").innerHTML = d.services.map(s =>
     `<div class="row"><span><span class="dot ${s.up?'up':'down'}"></span>${s.name}</span>`+
-    `<span class="muted">${s.up?'ok':'недоступен'}</span></div>`).join("");
+    `<span class="muted">${s.up?'ok':'unavailable'}</span></div>`).join("");
 
   document.getElementById("rag").innerHTML = d.rag.map(r =>
-    `<div class="row"><span class="muted">${r.namespace}</span><span>${r.points==null?'<span class="err">n/a</span>':fmt(r.points)+' чанков'}</span></div>`).join("");
+    `<div class="row"><span class="muted">${r.namespace}</span><span>${r.points==null?'<span class="err">n/a</span>':fmt(r.points)+' chunks'}</span></div>`).join("");
   document.getElementById("convs").textContent = fmt(d.conversations);
 
   document.getElementById("agents").innerHTML = d.agents.map(a =>
@@ -191,8 +191,8 @@ async function load(){
        <div class="title">${a.title} <span class="muted ${secCls(a.sensitivity)}">· ${a.sensitivity}</span></div>
        <div>${a.models.map(m=>`<span class="tag">${m}</span>`).join("")}</div>
        <div class="stat">
-         <div><b>${fmt(a.requests)}</b><span>запросов</span></div>
-         <div><b>${fmt(a.total_tokens)}</b><span>токенов (in+out)</span></div>
+         <div><b>${fmt(a.requests)}</b><span>requests</span></div>
+         <div><b>${fmt(a.total_tokens)}</b><span>tokens (in+out)</span></div>
        </div>
        <div class="muted" style="margin-top:8px;font-size:12px">RAG: ${a.namespace||'—'} · ${ago(a.last_used)}</div>
      </div>`).join("");

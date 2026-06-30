@@ -1,1 +1,1 @@
-"""RAG: embeddings через API (LiteLLM) + векторное хранилище Qdrant."""
+"""RAG: embeddings via API (LiteLLM) + Qdrant vector store."""

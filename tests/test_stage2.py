@@ -1,4 +1,4 @@
-"""Тесты Этапа 2: инструменты, память, агент и API (без реальных LLM/сети)."""
+"""Stage 2 tests: tools, memory, the agent, and the API (no real LLM/network)."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def test_parse_instant_answer():
     results = _parse_instant_answer(SAMPLE_IA, max_results=5)
     assert results[0].title == "Python"
     assert results[0].url == "https://example.com/python"
-    # вложенные RelatedTopics разворачиваются в плоский список
+    # nested RelatedTopics are flattened into a single list
     urls = {r.url for r in results}
     assert "https://example.com/pip" in urls
     assert "https://example.com/venv" in urls
@@ -51,7 +51,7 @@ async def test_web_search_uses_searxng():
     def handler(request: httpx.Request) -> httpx.Response:
         if "/search" in request.url.path:
             return httpx.Response(200, json=SEARX_SAMPLE)
-        return httpx.Response(200, json={})  # ddg не должен понадобиться
+        return httpx.Response(200, json={})  # ddg should not be needed
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http:
@@ -63,8 +63,8 @@ async def test_web_search_uses_searxng():
 async def test_web_search_falls_back_to_ddg_when_searxng_empty():
     def handler(request: httpx.Request) -> httpx.Response:
         if "/search" in request.url.path:
-            return httpx.Response(200, json={"results": []})  # SearXNG пусто
-        return httpx.Response(200, json=SAMPLE_IA)  # DDG отдаёт
+            return httpx.Response(200, json={"results": []})  # SearXNG empty
+        return httpx.Response(200, json=SAMPLE_IA)  # DDG responds
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as http:
@@ -100,7 +100,7 @@ def test_store_notes_and_clear():
     assert store.get_note("c1", "city") is None
 
 
-# --- агент через тестовую модель ---
+# --- the agent through a test model ---
 
 
 @pytest.fixture(autouse=True)
@@ -111,7 +111,7 @@ def _reset_store():
 
 
 def test_chat_with_test_model():
-    test_model = TestModel(call_tools=[], custom_output_text="Привет!")
+    test_model = TestModel(call_tools=[], custom_output_text="Hello!")
     with assistant.agent.override(model=test_model):
         with TestClient(app) as client:
             resp = client.post(
@@ -121,7 +121,7 @@ def test_chat_with_test_model():
     assert resp.status_code == 200
     body = resp.json()
     assert body["agent"] == "assistant"
-    assert body["reply"] == "Привет!"
+    assert body["reply"] == "Hello!"
     assert body["conversation_id"] == "test-conv"
 
 
@@ -137,7 +137,7 @@ def test_chat_multiturn_grows_history():
             client.post("/chat", json={"message": "first", "conversation_id": "test-conv"})
             client.post("/chat", json={"message": "second", "conversation_id": "test-conv"})
 
-    # второй ход видит больше сообщений, чем первый (история подмешана)
+    # the second turn sees more messages than the first (history is mixed in)
     assert seen_lengths[1] > seen_lengths[0]
 
 
@@ -158,32 +158,32 @@ def test_openai_models():
 
 
 def test_openai_chat_completions_non_stream():
-    test_model = TestModel(call_tools=[], custom_output_text="Ответ")
+    test_model = TestModel(call_tools=[], custom_output_text="Answer")
     with assistant.agent.override(model=test_model):
         with TestClient(app) as client:
             resp = client.post(
                 "/v1/chat/completions",
                 json={
                     "model": "assistant",
-                    "messages": [{"role": "user", "content": "вопрос"}],
+                    "messages": [{"role": "user", "content": "question"}],
                     "stream": False,
                 },
             )
     assert resp.status_code == 200
     body = resp.json()
     assert body["object"] == "chat.completion"
-    assert body["choices"][0]["message"]["content"] == "Ответ"
+    assert body["choices"][0]["message"]["content"] == "Answer"
 
 
 def test_openai_chat_completions_stream():
-    test_model = TestModel(call_tools=[], custom_output_text="поток")
+    test_model = TestModel(call_tools=[], custom_output_text="stream")
     with assistant.agent.override(model=test_model):
         with TestClient(app) as client:
             resp = client.post(
                 "/v1/chat/completions",
                 json={
                     "model": "assistant",
-                    "messages": [{"role": "user", "content": "вопрос"}],
+                    "messages": [{"role": "user", "content": "question"}],
                     "stream": True,
                 },
             )

@@ -1,23 +1,23 @@
 # syntax=docker/dockerfile:1
-# Изолированный sandbox для bash-исполнения агентами (Этап 6).
-# Запускается оркестратором по требованию через docker SDK.
-# Гарантии: без сети (или whitelist), RW только /tmp/work, лимиты CPU/RAM,
-# без --privileged и без проброса docker.sock.
+# Isolated sandbox for bash execution by the agents (Stage 6).
+# Started on demand by the orchestrator via the docker SDK.
+# Guarantees: no network (or a whitelist), RW only on /tmp/work, CPU/RAM limits,
+# no --privileged and no docker.sock passthrough.
 FROM python:3.12-slim
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        # code: git, ripgrep, jq, python (база уже python:3.12-slim)
+        # code: git, ripgrep, jq, python (the base is already python:3.12-slim)
         git ca-certificates ripgrep jq unzip \
         # secops: nmap, dns, tls, net
         nmap dnsutils openssl curl netcat-openbsd iputils-ping \
-        # nikto (perl-скрипт) — perl + модули: Net::SSLeay (HTTPS), JSON, XML::Writer
+        # nikto (perl script) — perl + modules: Net::SSLeay (HTTPS), JSON, XML::Writer
         perl libnet-ssleay-perl libjson-perl libxml-writer-perl \
     && rm -rf /var/lib/apt/lists/*
 
-# nuclei (template-сканер CVE/мисконфигов) + httpx (HTTP-проба, фингерпринт техно) —
-# статические Go-бинари с релизов ProjectDiscovery (чисто, без ruby/perl-зависимостей).
-# Версии запинены (GitHub API без токена rate-limited/flaky); бампать вручную.
+# nuclei (template scanner for CVEs/misconfigs) + httpx (HTTP probe, tech fingerprinting) —
+# static Go binaries from ProjectDiscovery releases (clean, no ruby/perl dependencies).
+# Versions are pinned (the GitHub API without a token is rate-limited/flaky); bump manually.
 ARG NUCLEI_VER=3.8.0
 ARG HTTPX_VER=1.9.0
 RUN set -eux; \
@@ -30,27 +30,28 @@ RUN set -eux; \
         chmod +x /usr/local/bin/${repo}; rm /tmp/${repo}.zip; \
     done
 
-# Шаблоны nuclei пекутся в образ (в рантайме sandbox эфемерный — иначе тянул бы
-# каждый раз). Берём детерминированно git-клоном репозитория шаблонов (механика
-# `nuclei -update-templates` зависит от конфига/HOME и оказалась флаки).
-# Кощей зовёт: nuclei -u <url> -t /opt/nuclei-templates -duc
+# nuclei templates are baked into the image (at runtime the sandbox is ephemeral —
+# otherwise it would download them every time). We fetch them deterministically by
+# git-cloning the templates repo (the `nuclei -update-templates` mechanism depends on
+# config/HOME and turned out to be flaky).
+# Invoked as: nuclei -u <url> -t /opt/nuclei-templates -duc
 RUN set -eux; \
     git clone --depth 1 https://github.com/projectdiscovery/nuclei-templates /opt/nuclei-templates; \
     rm -rf /opt/nuclei-templates/.git; \
     chmod -R a+rX /opt/nuclei-templates
 
-# testssl.sh (глубокий TLS-аудит) и nikto (сканер веб-сервера) — репозиториями.
+# testssl.sh (deep TLS audit) and nikto (web server scanner) — from their repos.
 RUN git clone --depth 1 https://github.com/testssl/testssl.sh /opt/testssl \
     && ln -s /opt/testssl/testssl.sh /usr/local/bin/testssl.sh \
     && git clone --depth 1 https://github.com/sullo/nikto /opt/nikto \
     && ln -s /opt/nikto/program/nikto.pl /usr/local/bin/nikto && chmod +x /opt/nikto/program/nikto.pl
 
-# Python-стек для отчётов/презентаций (Левша тестирует офлайн): данные — pandas,
-# презентация — python-pptx, БД-логика — против sqlite (stdlib). Ставится на этапе
-# сборки образа; в рантайме sandbox сети не имеет.
+# Python stack for reports/presentations (tested offline): data — pandas,
+# presentations — python-pptx, DB logic — against sqlite (stdlib). Installed at image
+# build time; at runtime the sandbox has no network.
 RUN pip install --no-cache-dir pandas python-pptx openpyxl
 
-# Непривилегированный пользователь
+# Unprivileged user
 RUN useradd -m -u 10001 sandbox
 USER sandbox
 WORKDIR /tmp/work

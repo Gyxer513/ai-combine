@@ -1,10 +1,10 @@
 """🛡 Recon — SecOps Agent.
 
-Обучение ИБ, threat modeling, defensive coding, hardening собственной инфры.
-Чувствительность данных SECRET — только enterprise/платные модели, никаких
-cloaked. Основная модель — `glm-5.1` (MaaS workspace, thinking on), резерв `qwen-max`.
+Infosec learning, threat modeling, defensive coding, hardening your own infra.
+Data sensitivity SECRET — enterprise/paid models only, no cloaked ones. The primary
+model is `glm-5.1` (MaaS workspace, thinking on), with `qwen-max` as backup.
 
-RAG namespace `security`; security-команды — в изолированном sandbox-broker.
+RAG namespace `security`; security commands run in the isolated sandbox-broker.
 """
 
 from __future__ import annotations
@@ -27,24 +27,24 @@ NAME = "recon"
 TITLE = "🛡 Recon"
 SENSITIVITY = DataSensitivity.SECRET
 
-# glm-5.1 (thinking) основной, резерв nemotron-super-free (open weights) → qwen-max.
-# SECRET: никаких cloaked-моделей — owl-alpha исключён.
+# glm-5.1 (thinking) primary, backups nemotron-super-free (open weights) → qwen-max.
+# SECRET: no cloaked models — owl-alpha is excluded.
 MODELS = ["glm-5.1", "nemotron-super-free", "qwen-max"]
 
 agent = Agent(
     build_model(MODELS),
     deps_type=AgentDeps,
-    instructions=load_prompt(NAME),  # см. пояснение в assistant.py
+    instructions=load_prompt(NAME),  # see the explanation in assistant.py
     name=NAME,
-    capabilities=history_capabilities(),  # ужимание истории по токен-бюджету
+    capabilities=history_capabilities(),  # history compaction by token budget
 )
 register_common_tools(agent)
 register_rag_tool(agent, namespace="security")
 register_shell_tool(
     agent,
-    profile="secops",  # у брокера: сеть ВКЛ для скана своей инфры
-    allowed=SECOPS_ALLOWED,  # без интерпретаторов: сеть + произвольный exec = эксфил
+    profile="secops",  # broker: network ON to scan your own infra
+    allowed=SECOPS_ALLOWED,  # no interpreters: network + arbitrary exec = exfiltration
     name="run_security_command",
-    what="Запуск security-команды (nmap, openssl, dig, curl, nc)",
-    network_note="есть сеть",
+    what="Run a security command (nmap, openssl, dig, curl, nc)",
+    network_note="network available",
 )

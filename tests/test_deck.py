@@ -1,4 +1,4 @@
-"""Тесты Deck-worker: роутинг по меткам, парсинг ответа, логика обработки карточки."""
+"""Deck-worker tests: label routing, response parsing, card-processing logic."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import httpx
 from src.deck_worker.client import DeckClient, _unwrap
 from src.deck_worker.main import agent_for_card, card_prompt, process_card
 
-# --- роутинг по меткам ---
+# --- label routing ---
 
 
 def test_agent_for_card_by_label():
@@ -31,26 +31,26 @@ def test_card_prompt_joins_title_and_description():
     assert card_prompt({"title": "T", "description": ""}) == "T"
 
 
-# --- разбор ответа Deck ---
+# --- Deck response parsing ---
 
 
 def test_unwrap_handles_both_shapes():
-    assert _unwrap({"result": [1, 2]}) == [1, 2]  # MCP-обёртка
-    assert _unwrap([1, 2]) == [1, 2]  # сырой API
+    assert _unwrap({"result": [1, 2]}) == [1, 2]  # MCP wrapper
+    assert _unwrap([1, 2]) == [1, 2]  # raw API
 
 
 async def test_deck_client_find_board():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path.endswith("/boards")
-        return httpx.Response(200, json=[{"id": 1, "title": "A"}, {"id": 2, "title": "Задачи"}])
+        return httpx.Response(200, json=[{"id": 1, "title": "A"}, {"id": 2, "title": "Tasks"}])
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     deck = DeckClient(http, "http://nc.test", "u", "p")
-    board = await deck.find_board("Задачи")
+    board = await deck.find_board("Tasks")
     assert board["id"] == 2
 
 
-# --- логика обработки карточки ---
+# --- card-processing logic ---
 
 
 class _FakeDeck:
@@ -66,7 +66,7 @@ class _FakeDeck:
 
 
 class _FakeOrch:
-    def __init__(self, reply="Токио", fail=False) -> None:
+    def __init__(self, reply="Tokyo", fail=False) -> None:
         self._reply = reply
         self._fail = fail
         self.calls: list[tuple] = []
@@ -88,28 +88,29 @@ async def _process(deck, orch, card, *, failed_id=57):
 
 
 async def test_process_card_happy_path():
-    deck, orch = _FakeDeck(), _FakeOrch(reply="Токио")
-    await _process(deck, orch, {"id": 98, "title": "Столица Японии?", "labels": [{"title": "ask"}]})
-    # claim в In Progress (55), затем перенос в Done (56)
+    deck, orch = _FakeDeck(), _FakeOrch(reply="Tokyo")
+    card = {"id": 98, "title": "Capital of Japan?", "labels": [{"title": "ask"}]}
+    await _process(deck, orch, card)
+    # claim into In Progress (55), then move to Done (56)
     assert deck.moves == [(98, 55), (98, 56)]
-    # агент выбран по метке, conversation_id привязан к карточке
+    # agent chosen by label, conversation_id bound to the card
     assert orch.calls[0][1] == "assistant"
     assert orch.calls[0][2] == "deck:98"
-    # результат в комментарии
-    assert "Токио" in deck.comments[0][1]
+    # result in the comment
+    assert "Tokyo" in deck.comments[0][1]
 
 
 async def test_process_card_failure_moves_to_failed_not_done():
     deck, orch = _FakeDeck(), _FakeOrch(fail=True)
     await _process(deck, orch, {"id": 99, "title": "X", "labels": [{"title": "sec"}]})
-    # claim в In Progress (55), затем в Failed (57) — НЕ в Done (56)
+    # claim into In Progress (55), then to Failed (57) — NOT to Done (56)
     assert deck.moves == [(99, 55), (99, 57)]
-    assert "❌" in deck.comments[0][1]  # с пометкой об ошибке
+    assert "❌" in deck.comments[0][1]  # with an error marker
 
 
 async def test_process_card_failure_no_failed_stack_stays_in_progress():
-    # стека Failed нет -> карточка остаётся в In Progress, НЕ уезжает в Done
+    # no Failed stack -> the card stays in In Progress, does NOT move to Done
     deck, orch = _FakeDeck(), _FakeOrch(fail=True)
     await _process(deck, orch, {"id": 100, "title": "X", "labels": []}, failed_id=None)
-    assert deck.moves == [(100, 55)]  # только claim, дальше не двигаем
+    assert deck.moves == [(100, 55)]  # only the claim, no further move
     assert "❌" in deck.comments[0][1]

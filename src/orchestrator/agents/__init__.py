@@ -1,1 +1,1 @@
-"""Агенты: recon (SecOps), coder (Coder), assistant (General). Реализация — Этап 2/4."""
+"""Agents: recon (SecOps), coder (Coder), assistant (General). Implementation — Stage 2/4."""

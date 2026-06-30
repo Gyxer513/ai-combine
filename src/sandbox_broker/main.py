@@ -1,19 +1,19 @@
-"""Sandbox-broker — изолированное порождение hardened-контейнеров.
+"""Sandbox-broker — isolated spawning of hardened containers.
 
-Это ЕДИНСТВЕННЫЙ сервис, которому в compose проброшен `docker.sock`. Он
-экспонирует минимальный API:
+This is the ONLY service that has `docker.sock` mounted in compose. It exposes a
+minimal API:
 
     POST /run {profile, command} -> {output, blocked, reason}
 
-Клиент (оркестратор) задаёт только профиль и команду. Всё остальное —
-образ, cap_drop, read-only rootfs, лимиты, сеть, пользователь — захардкожено
-здесь и НЕ управляется снаружи. Allowlist бинарей проверяется тут же
-(авторитетно): даже если оркестратор скомпрометирован инъекцией, он не сможет
-ни запустить произвольный docker, ни обойти allowlist.
+The client (orchestrator) only specifies the profile and command. Everything else —
+image, cap_drop, read-only rootfs, limits, network, user — is hardcoded here and is
+NOT controlled from outside. The binary allowlist is checked right here
+(authoritatively): even if the orchestrator is compromised by injection, it cannot
+run an arbitrary docker container or bypass the allowlist.
 
-Профили:
-    secops — сеть ВКЛ (скан своей инфры), allowlist SECOPS_ALLOWED (без интерпретаторов)
-    coder  — сеть ВЫКЛ (прогон кода),     allowlist CODER_ALLOWED
+Profiles:
+    secops — network ON (scanning your infra), allowlist SECOPS_ALLOWED (no interpreters)
+    coder  — network OFF (running code),       allowlist CODER_ALLOWED
 """
 
 from __future__ import annotations
@@ -24,13 +24,13 @@ import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-# Переиспользуем единый guard/allowlist (sibling-импорт, как telegram_bot/rag_indexer).
+# Reuse the shared guard/allowlist (sibling import, like telegram_bot/rag_indexer).
 from src.orchestrator.config import settings
 from src.orchestrator.tools.guard import CODER_ALLOWED, SECOPS_ALLOWED, CommandGuard
 
 log = structlog.get_logger()
 
-# Профиль -> (сеть, allowlist). Server-side, клиент не влияет.
+# Profile -> (network, allowlist). Server-side, the client has no say.
 _PROFILES = {
     "secops": (True, SECOPS_ALLOWED),
     "coder": (False, CODER_ALLOWED),
@@ -38,7 +38,7 @@ _PROFILES = {
 
 
 class SandboxRunner:
-    """Запуск команды в одноразовом hardened-контейнере (docker SDK)."""
+    """Run a command in a single-use hardened container (docker SDK)."""
 
     def __init__(self, *, network: bool) -> None:
         self._network = network
@@ -52,12 +52,12 @@ class SandboxRunner:
 
             import docker
         except ImportError:
-            return "[sandbox недоступен: пакет docker не установлен]"
+            return "[sandbox unavailable: the docker package is not installed]"
 
         try:
             client = docker.from_env()
         except DockerException as exc:
-            return f"[sandbox недоступен: нет доступа к docker — {exc}]"
+            return f"[sandbox unavailable: no access to docker — {exc}]"
 
         kwargs = {
             "image": settings.sandbox_image,
@@ -82,20 +82,20 @@ class SandboxRunner:
         try:
             container = client.containers.run(**kwargs)
         except ImageNotFound:
-            return f"[sandbox образ не найден: {settings.sandbox_image}]"
+            return f"[sandbox image not found: {settings.sandbox_image}]"
         except DockerException as exc:
-            return f"[sandbox ошибка запуска: {exc}]"
+            return f"[sandbox startup error: {exc}]"
 
         try:
             result = container.wait(timeout=settings.sandbox_timeout_sec)
             logs = container.logs(stdout=True, stderr=True).decode("utf-8", "replace")
             code = result.get("StatusCode", "?")
-        except Exception as exc:  # noqa: BLE001 — таймаут docker SDK и пр.
+        except Exception as exc:  # noqa: BLE001 — docker SDK timeout, etc.
             try:
                 container.kill()
             except Exception:  # noqa: BLE001
                 pass
-            return f"[sandbox прерван (таймаут {settings.sandbox_timeout_sec}s или ошибка): {exc}]"
+            return f"[sandbox aborted (timeout {settings.sandbox_timeout_sec}s or error): {exc}]"
         finally:
             try:
                 container.remove(force=True)
@@ -104,7 +104,7 @@ class SandboxRunner:
 
         out = logs[: settings.sandbox_output_limit]
         if len(logs) > settings.sandbox_output_limit:
-            out += "\n...[вывод обрезан]"
+            out += "\n...[output truncated]"
         return f"exit={code}\n{out}".strip()
 
 
@@ -129,11 +129,11 @@ async def health() -> dict[str, str]:
 
 @app.post("/run", response_model=RunResponse)
 async def run(req: RunRequest) -> RunResponse:
-    """Выполнить команду по профилю. Allowlist проверяется здесь авторитетно."""
+    """Run a command by profile. The allowlist is checked here authoritatively."""
     profile = _PROFILES.get(req.profile)
     if profile is None:
         log.warning("broker.unknown_profile", profile=req.profile)
-        return RunResponse(blocked=True, reason=f"неизвестный профиль «{req.profile}»")
+        return RunResponse(blocked=True, reason=f"unknown profile «{req.profile}»")
 
     network, allowed = profile
     ok, reason = CommandGuard(allowed).check(req.command)

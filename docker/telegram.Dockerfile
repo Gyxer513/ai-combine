@@ -15,5 +15,5 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY src/ ./src/
 
 ENV PATH="/app/.venv/bin:$PATH"
-# Этап 5: long polling
+# Stage 5: long polling
 CMD ["python", "-m", "src.telegram_bot.main"]

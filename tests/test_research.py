@@ -1,4 +1,4 @@
-"""Тесты research-worker: ротация тем, парсинг, антидубль, создание карточек."""
+"""Research-worker tests: theme rotation, parsing, de-duplication, card creation."""
 
 from __future__ import annotations
 
@@ -11,18 +11,18 @@ def test_pick_theme_rotates():
     themes = ["a", "b", "c"]
     assert rw.pick_theme(themes, 0) == "a"
     assert rw.pick_theme(themes, 1) == "b"
-    assert rw.pick_theme(themes, 3) == "a"  # по кругу
+    assert rw.pick_theme(themes, 3) == "a"  # wraps around
 
 
 def test_build_prompt_has_theme_and_existing():
-    p = rw.build_prompt("автоматизация", "сниппеты", ["Идея X"], 2)
-    assert "автоматизация" in p
-    assert "Идея X" in p
+    p = rw.build_prompt("automation", "snippets", ["Idea X"], 2)
+    assert "automation" in p
+    assert "Idea X" in p
     assert "2" in p
 
 
 def test_parse_ideas_valid():
-    content = '[{"title":"A","pitch":"p","effort":"низкие","potential":"50к","source":"u"}]'
+    content = '[{"title":"A","pitch":"p","effort":"low","potential":"50k","source":"u"}]'
     ideas = rw.parse_ideas(content)
     assert len(ideas) == 1
     assert ideas[0].title == "A"
@@ -30,13 +30,13 @@ def test_parse_ideas_valid():
 
 
 def test_parse_ideas_in_codefence_and_noise():
-    content = "Вот идеи:\n```json\n[{\"title\":\"B\",\"pitch\":\"x\"}]\n```\nготово"
+    content = "Here are the ideas:\n```json\n[{\"title\":\"B\",\"pitch\":\"x\"}]\n```\ndone"
     ideas = rw.parse_ideas(content)
     assert [i.title for i in ideas] == ["B"]
 
 
 def test_parse_ideas_garbage():
-    assert rw.parse_ideas("нет json") == []
+    assert rw.parse_ideas("no json here") == []
     assert rw.parse_ideas("") == []
 
 
@@ -49,7 +49,7 @@ class _FakeDeck:
         return {"id": 1}
 
     async def stacks(self, board_id):
-        return [{"id": 10, "title": "Новые", "cards": []}]
+        return [{"id": 10, "title": "New", "cards": []}]
 
     async def board_card_titles(self, board_id):
         return set(self._existing)
@@ -60,16 +60,16 @@ class _FakeDeck:
 
 
 async def test_run_once_creates_only_new(monkeypatch):
-    deck = _FakeDeck(existing={"Старая идея"})
+    deck = _FakeDeck(existing={"Old idea"})
 
     async def fake_snippets(web, theme, n):
-        return "результаты поиска"
+        return "search results"
 
     async def fake_model(http, system, user):
         return (
-            '[{"title":"Новая идея","pitch":"п","effort":"низкие",'
-            '"potential":"50к/мес","source":"u"},'
-            '{"title":"старая идея","pitch":"дубль"}]'  # дубль по регистру -> отсеять
+            '[{"title":"New idea","pitch":"p","effort":"low",'
+            '"potential":"50k/mo","source":"u"},'
+            '{"title":"old idea","pitch":"dup"}]'  # case-insensitive duplicate -> filtered
         )
 
     monkeypatch.setattr(rw, "gather_snippets", fake_snippets)
@@ -79,5 +79,5 @@ async def test_run_once_creates_only_new(monkeypatch):
         created = await rw.run_once(http, deck, ordinal=0)
 
     assert created == 1
-    assert deck.created[0][0] == "Новая идея"
+    assert deck.created[0][0] == "New idea"
     assert len(deck.created) == 1

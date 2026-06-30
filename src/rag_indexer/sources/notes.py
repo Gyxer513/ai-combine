@@ -1,7 +1,7 @@
-"""Источник: Nextcloud Notes (тот же API, что у заметок).
+"""Source: Nextcloud Notes (the Notes app API).
 
-Категория заметки маппится в namespace через `rag_notes_category_map`
-(несопоставленные → `rag_notes_default_ns`).
+A note's category is mapped to a namespace via `rag_notes_category_map`
+(unmapped → `rag_notes_default_ns`).
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ NOTES_API = "/index.php/apps/notes/api/v1/notes"
 
 
 async def fetch_notes(http: httpx.AsyncClient) -> list[RagDocument]:
-    """Забрать все заметки и превратить в документы."""
+    """Fetch all notes and turn them into documents."""
     if not (settings.nextcloud_url and settings.nextcloud_user):
         log.info("notes.skip", reason="nextcloud creds not set")
         return []

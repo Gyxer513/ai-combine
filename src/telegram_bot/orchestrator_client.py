@@ -1,4 +1,4 @@
-"""HTTP-клиент бота к оркестратору (/chat)."""
+"""The bot's HTTP client for the orchestrator (/chat)."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from src.orchestrator.config import settings
 
 
 class OrchestratorClient:
-    """Тонкая обёртка над /chat оркестратора."""
+    """Thin wrapper around the orchestrator's /chat."""
 
     def __init__(self, http: httpx.AsyncClient, base_url: str) -> None:
         self._http = http
         self._base_url = base_url.rstrip("/")
 
     async def chat(self, *, message: str, agent: str, conversation_id: str) -> str:
-        """Отправить сообщение агенту, вернуть текст ответа."""
+        """Send a message to the agent, return the reply text."""
         headers = {}
         if settings.orchestrator_api_token:
             headers["Authorization"] = f"Bearer {settings.orchestrator_api_token}"

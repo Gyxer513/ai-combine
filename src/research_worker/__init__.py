@@ -1,1 +1,1 @@
-"""Research-worker: регулярный token-bounded ресёрч заработка (assistant) на Deck."""
+"""Research-worker: periodic token-bounded money-making research (assistant) on Deck."""

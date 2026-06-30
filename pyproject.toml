@@ -1,13 +1,13 @@
 [project]
 name = "ai-combine"
 version = "0.1.0"
-description = "Self-hosted мульти-агентный комбайн: SecOps/Coder/General/Chronicler агенты на дешёвых LLM"
+description = "Self-hosted multi-agent combine: SecOps/Coder/General/Chronicler agents on cheap LLMs"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Filipp Panchuk (Gyxer)" }]
 requires-python = ">=3.11"
 dependencies = [
-    # --- Оркестрация агентов ---
+    # --- Agent orchestration ---
     "pydantic-ai-slim[openai]>=0.0.20",
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
@@ -15,9 +15,9 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "httpx>=0.27",
-    # --- Sandbox (Этап 6): порождение изолированных контейнеров ---
+    # --- Sandbox (Stage 6): spawning isolated containers ---
     "docker>=7.1",
-    # --- Логи ---
+    # --- Logging ---
     "structlog>=24.4",
 ]
 
@@ -50,7 +50,7 @@ target-version = "py311"
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
 
 [tool.ruff.lint.per-file-ignores]
-# dashboard.py содержит inline HTML/JS-шаблон с длинными строками.
+# dashboard.py contains an inline HTML/JS template with long lines.
 "src/orchestrator/api/dashboard.py" = ["E501"]
 
 [tool.pytest.ini_options]

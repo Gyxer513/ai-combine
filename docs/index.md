@@ -1,36 +1,36 @@
 # AI Combine
 
-**Self-hosted мульти-агентный «комбайн» на дешёвых LLM** (китайские модели Alibaba
-Model Studio + free-тиры OpenRouter за одним LiteLLM-прокси). Четыре агента, доступных
-через OpenWebUI и Telegram, RAG по своей базе знаний в Nextcloud, изолированное
-исполнение команд и автономные воркеры.
+**A self-hosted multi-agent "combine" built on cheap LLMs** (Chinese models from Alibaba
+Model Studio + OpenRouter free tiers behind a single LiteLLM proxy). Four agents reachable
+via OpenWebUI and Telegram, RAG over your own Nextcloud knowledge base, isolated command
+execution, and autonomous workers.
 
-!!! warning "Личный проект «как есть»"
-    Запускайте **только на своей инфраструктуре и против своих целей**. Агенты
-    исполняют команды и ходят в вашу инфру от вашего имени — сначала прочитайте
-    [модель безопасности](security.md). Лицензия — MIT, без гарантий.
+!!! warning "Personal project, as-is"
+    Run it **only on your own infrastructure and against your own targets**. The agents
+    execute commands and reach into your infra on your behalf — read the
+    [security model](security.md) first. MIT license, no warranty.
 
-## Агенты
+## Agents
 
-| Агент | Роль | Чем занимается |
+| Agent | Role | What it does |
 |---|---|---|
-| 🛡 `recon` | SecOps | скан/хардненинг своей инфры (nmap/nuclei/nikto/testssl/httpx в sandbox) |
-| 🔨 `coder` | Coder | чтение/написание/ревью кода, прогон тестов в sandbox, GitHub |
-| 💬 `assistant` | General | общие вопросы, поиск, ресёрч |
-| 🧭 `planner` | Orchestrator | режет ТЗ проекта на дочерние задачи для агентов |
+| 🛡 `recon` | SecOps | scan/harden your own infra (nmap/nuclei/nikto/testssl/httpx in a sandbox) |
+| 🔨 `coder` | Coder | read/write/review code, run tests in a sandbox, GitHub |
+| 💬 `assistant` | General | general questions, search, research |
+| 🧭 `planner` | Orchestrator | slices a project brief into child tasks for the agents |
 
-## Что внутри
+## What's inside
 
-- **Мульти-агент** на Pydantic AI: персона через `instructions=`, пер-агентные
-  fallback-цепочки моделей (`FallbackModel`), ужимание истории по токен-бюджету,
-  персист истории и метрик на SQLite.
-- **LLM-роутинг** через LiteLLM (Alibaba + OpenRouter) одним ключом.
-- **RAG** по Nextcloud (Notes + WebDAV) → Qdrant; embeddings через API.
-- **Фронтенды**: OpenWebUI (агенты как «модели») + Telegram (один бот на агента).
-- **Sandbox**: изолированное исполнение через привилегированный `sandbox-broker`
-  (docker.sock только у него), allowlist бинарей, защита от инъекций.
-- **Автономия**: воркеры по расписанию — задачи из Nextcloud Deck, ресёрч идей
-  заработка; планировщик режет проект на задачи остальным агентам.
+- **Multi-agent** on Pydantic AI: persona via `instructions=`, per-agent model fallback
+  chains (`FallbackModel`), token-budget history compaction, history and metrics
+  persisted on SQLite.
+- **LLM routing** through LiteLLM (Alibaba + OpenRouter) with one key.
+- **RAG** over Nextcloud (Notes + WebDAV) → Qdrant; embeddings via API.
+- **Frontends**: OpenWebUI (agents as "models") + Telegram (one bot per agent).
+- **Sandbox**: isolated execution via a privileged `sandbox-broker` (it alone holds
+  docker.sock), binary allowlist, injection defenses.
+- **Autonomy**: scheduled workers — tasks from Nextcloud Deck, money-making idea
+  research; the planner slices a project into tasks for the other agents.
 
-Дальше: [быстрый старт](quickstart.md) · [агенты](agents.md) ·
-[архитектура](architecture.md) · [безопасность](security.md).
+Next: [quickstart](quickstart.md) · [agents](agents.md) · [architecture](architecture.md)
+· [security](security.md).

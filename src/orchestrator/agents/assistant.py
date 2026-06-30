@@ -1,10 +1,10 @@
 """💬 Assistant — General Agent.
 
-Общий помощник: ресёрч, поиск, бытовые вопросы. Чувствительность данных PUBLIC,
-поэтому впереди стоят бесплатные модели: основная `owl-alpha-free` (1M контекст),
-резерв `qwen-plus` → `qwen-max`.
+General assistant: research, search, everyday questions. Data sensitivity PUBLIC,
+so free models come first: primary `owl-alpha-free` (1M context),
+backups `qwen-plus` → `qwen-max`.
 
-Инструменты: web_search, scratchpad-память, RAG (`search_knowledge_base`).
+Tools: web_search, scratchpad memory, RAG (`search_knowledge_base`).
 """
 
 from __future__ import annotations
@@ -25,18 +25,18 @@ NAME = "assistant"
 TITLE = "💬 Assistant"
 SENSITIVITY = DataSensitivity.PUBLIC
 
-# Цепочка LiteLLM: основная + fallback'и.
+# LiteLLM chain: primary + fallbacks.
 MODELS = ["owl-alpha-free", "qwen-plus", "qwen-max"]
 
 agent = Agent(
     build_model(MODELS),
     deps_type=AgentDeps,
-    # instructions (а не system_prompt): применяются на КАЖДОМ запуске, в т.ч. когда
-    # передаётся message_history (многоходовой /chat, путь OpenWebUI). С system_prompt
-    # persona терялась на втором+ ходу и в OpenWebUI.
+    # instructions (not system_prompt): applied on EVERY run, including when
+    # message_history is passed (multi-turn /chat, the OpenWebUI path). With system_prompt
+    # the persona was lost on the second+ turn and in OpenWebUI.
     instructions=load_prompt(NAME),
     name=NAME,
-    capabilities=history_capabilities(),  # ужимание истории по токен-бюджету
+    capabilities=history_capabilities(),  # history compaction by token budget
 )
 register_common_tools(agent)
 register_rag_tool(agent, namespace="personal")

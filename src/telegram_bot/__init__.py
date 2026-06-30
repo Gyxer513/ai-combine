@@ -1,1 +1,1 @@
-"""Telegram-фронтенд (aiogram 3) с whitelist. Реализация — Этап 5."""
+"""Telegram frontend (aiogram 3) with a whitelist. Implemented in Stage 5."""

@@ -1,12 +1,12 @@
-"""Whitelist-доступ к боту.
+"""Whitelist access to the bot.
 
-`TELEGRAM_ALLOWED_USERS` — список user_id через запятую. Чужие сообщения молча
-игнорируются.
+`TELEGRAM_ALLOWED_USERS` — a comma-separated list of user_ids. Messages from anyone
+else are silently ignored.
 
-Пустой whitelist по умолчанию **fail-closed**: никого не пускаем, а id отказанных
-пишем в лог (WARNING) — чтобы владелец узнал свой id и добавил его в whitelist.
-Открытый bootstrap-режим (пускать всех при пустом списке) включается только явным
-`TELEGRAM_ALLOW_BOOTSTRAP=true` — для локальной разработки, не для прод-деплоя.
+An empty whitelist is **fail-closed** by default: no one is let in, and denied ids are
+logged (WARNING) so the owner can learn their id and add it to the whitelist.
+The open bootstrap mode (let everyone in when the list is empty) is enabled only by an
+explicit `TELEGRAM_ALLOW_BOOTSTRAP=true` — for local development, not for a prod deploy.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ log = structlog.get_logger()
 
 
 class WhitelistMiddleware(BaseMiddleware):
-    """Пропускает только разрешённых пользователей."""
+    """Lets through only allowed users."""
 
     def __init__(self, allowed: set[int], *, allow_bootstrap: bool = False) -> None:
         self._allowed = allowed
@@ -41,7 +41,7 @@ class WhitelistMiddleware(BaseMiddleware):
                 if user:
                     log.warning("telegram.whitelist_empty_bootstrap", user_id=user.id)
                 return await handler(event, data)
-            # fail-closed: пусто и без bootstrap — никого. Логируем id для добавления.
+            # fail-closed: empty and no bootstrap — no one. Log the id so it can be added.
             if user:
                 log.warning("telegram.denied_whitelist_empty", user_id=user.id)
             return None
@@ -51,4 +51,4 @@ class WhitelistMiddleware(BaseMiddleware):
 
         if user:
             log.info("telegram.denied", user_id=user.id)
-        return None  # молча игнорируем
+        return None  # silently ignore

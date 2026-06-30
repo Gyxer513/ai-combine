@@ -1,4 +1,4 @@
-"""Тесты дашборда: метрики, статистика стора и роуты."""
+"""Dashboard tests: metrics, store stats, and routes."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def test_metrics_record_accumulates():
 
 
 def test_metrics_unknown_agent_zero():
-    a = Metrics(_mem_db()).for_agent("нет")
+    a = Metrics(_mem_db()).for_agent("none")
     assert a.requests == 0 and a.input_tokens == 0
 
 
@@ -67,7 +67,7 @@ def test_api_dashboard_structure(monkeypatch):
     assert resp.status_code == 200
     data = resp.json()
     assert {"uptime_sec", "services", "agents", "rag", "conversations", "messages"} <= data.keys()
-    # три агента из реестра
+    # three agents from the registry
     names = {a["name"] for a in data["agents"]}
     assert {"assistant", "recon", "coder"} <= names
     assert data["services"][0]["name"] == "LiteLLM"

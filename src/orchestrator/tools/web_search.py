@@ -1,13 +1,13 @@
-"""Веб-поиск для агентов.
+"""Web search for the agents.
 
-Основной источник — self-hosted **SearXNG** (метапоисковик, JSON API): даёт
-нормальную выдачу с заголовками/сниппетами и не зависит от внешнего SaaS.
-Если SearXNG недоступен или ничего не вернул — fallback на DuckDuckGo Instant
-Answer API (JSON, без парсинга HTML). Если и он пуст — пустой список (инструмент
-не должен ронять запрос агента).
+The primary source is self-hosted **SearXNG** (a metasearch engine, JSON API): it
+gives decent results with titles/snippets and does not depend on an external SaaS.
+If SearXNG is unavailable or returns nothing — fall back to the DuckDuckGo Instant
+Answer API (JSON, no HTML parsing). If that is empty too — an empty list (the tool
+must not crash the agent's request).
 
-HTTP-клиент инъектируется снаружи (общий `httpx.AsyncClient` оркестратора) —
-инструмент тестируется без реальной сети.
+The HTTP client is injected from outside (the orchestrator's shared
+`httpx.AsyncClient`) — the tool is tested without a real network.
 """
 
 from __future__ import annotations
@@ -26,21 +26,21 @@ DUCKDUCKGO_IA_URL = "https://api.duckduckgo.com/"
 
 @dataclass(slots=True)
 class SearchResult:
-    """Одна находка поиска."""
+    """A single search result."""
 
     title: str
     url: str
     snippet: str
 
     def as_line(self) -> str:
-        """Компактное текстовое представление для LLM."""
+        """Compact text representation for the LLM."""
         head = self.title or self.url
         body = f"{head}\n{self.snippet}".strip()
         return f"{body}\n{self.url}".strip() if self.url else body
 
 
 class WebSearchClient:
-    """Веб-поиск: SearXNG с fallback на DuckDuckGo."""
+    """Web search: SearXNG with a DuckDuckGo fallback."""
 
     def __init__(
         self,
@@ -54,14 +54,14 @@ class WebSearchClient:
         self._ddg_url = ddg_url
 
     async def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:
-        """Вернуть до `max_results` находок: сначала SearXNG, потом DuckDuckGo."""
+        """Return up to `max_results` results: SearXNG first, then DuckDuckGo."""
         results = await self._search_searxng(query, max_results=max_results)
         if results:
             return results
         return await self._search_ddg(query, max_results=max_results)
 
     async def _search_searxng(self, query: str, *, max_results: int) -> list[SearchResult]:
-        """Запрос к SearXNG JSON API."""
+        """Request to the SearXNG JSON API."""
         params = {"q": query, "format": "json", "language": "ru", "safesearch": "0"}
         try:
             resp = await self._http.get(f"{self._searxng_url}/search", params=params)
@@ -83,7 +83,7 @@ class WebSearchClient:
         return out
 
     async def _search_ddg(self, query: str, *, max_results: int) -> list[SearchResult]:
-        """Fallback: DuckDuckGo Instant Answer API."""
+        """Fallback: the DuckDuckGo Instant Answer API."""
         params = {
             "q": query,
             "format": "json",
@@ -102,7 +102,7 @@ class WebSearchClient:
 
 
 def _parse_instant_answer(data: dict, *, max_results: int) -> list[SearchResult]:
-    """Разобрать ответ DuckDuckGo Instant Answer API в плоский список находок."""
+    """Parse a DuckDuckGo Instant Answer API response into a flat list of results."""
     results: list[SearchResult] = []
 
     abstract = (data.get("AbstractText") or "").strip()
@@ -129,7 +129,7 @@ def _parse_instant_answer(data: dict, *, max_results: int) -> list[SearchResult]
 
 
 def _iter_related_topics(topics: list):
-    """Развернуть вложенные группы RelatedTopics (поля `Topics`) в плоскую ленту."""
+    """Flatten nested RelatedTopics groups (the `Topics` fields) into a flat feed."""
     for item in topics:
         if not isinstance(item, dict):
             continue

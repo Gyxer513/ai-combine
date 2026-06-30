@@ -1,8 +1,8 @@
-"""Реестр агентов: единая точка, откуда API берёт агента по имени.
+"""Agent registry: the single place the API uses to look up an agent by name.
 
-Все четверо (assistant / recon / coder / planner) зарегистрированы и переключаются
-как отдельные «модели» в OpenWebUI. Специфичные инструменты (RAG, sandbox, GitHub,
-Deck-планировщик) навешиваются в модулях самих агентов.
+All four (assistant / recon / coder / planner) are registered and switched
+between as separate "models" in OpenWebUI. Specific tools (RAG, sandbox, GitHub,
+Deck planner) are attached in the agents' own modules.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from .base import AgentDeps, DataSensitivity
 
 @dataclass(frozen=True, slots=True)
 class AgentCard:
-    """Метаданные агента для роутинга и витрины (/agents, /v1/models)."""
+    """Agent metadata for routing and display (/agents, /v1/models)."""
 
     name: str
     title: str
@@ -31,7 +31,7 @@ REGISTRY: dict[str, AgentCard] = {
     assistant.NAME: AgentCard(
         name=assistant.NAME,
         title=assistant.TITLE,
-        description="Общий помощник: ресёрч, поиск, бытовые вопросы.",
+        description="General assistant: research, search, everyday questions.",
         sensitivity=assistant.SENSITIVITY,
         models=assistant.MODELS,
         agent=assistant.agent,
@@ -39,7 +39,7 @@ REGISTRY: dict[str, AgentCard] = {
     recon.NAME: AgentCard(
         name=recon.NAME,
         title=recon.TITLE,
-        description="SecOps: обучение ИБ, threat modeling, hardening своей инфры.",
+        description="SecOps: infosec learning, threat modeling, hardening your own infra.",
         sensitivity=recon.SENSITIVITY,
         models=recon.MODELS,
         agent=recon.agent,
@@ -47,7 +47,7 @@ REGISTRY: dict[str, AgentCard] = {
     coder.NAME: AgentCard(
         name=coder.NAME,
         title=coder.TITLE,
-        description="Coder: чтение, написание и ревью кода в репозиториях.",
+        description="Coder: reading, writing, and reviewing code in repositories.",
         sensitivity=coder.SENSITIVITY,
         models=coder.MODELS,
         agent=coder.agent,
@@ -55,7 +55,7 @@ REGISTRY: dict[str, AgentCard] = {
     planner.NAME: AgentCard(
         name=planner.NAME,
         title=planner.TITLE,
-        description="Планировщик: режет ТЗ проекта на дочерние задачи для агентов.",
+        description="Planner: splits a project spec into subtasks for the agents.",
         sensitivity=planner.SENSITIVITY,
         models=planner.MODELS,
         agent=planner.agent,
@@ -66,10 +66,10 @@ DEFAULT_AGENT = assistant.NAME
 
 
 def get_agent(name: str | None) -> AgentCard:
-    """Вернуть карточку агента по имени (или дефолтного assistant).
+    """Return an agent card by name (or the default assistant).
 
-    Имя нечувствительно к регистру; неизвестное имя -> дефолтный агент,
-    чтобы OpenWebUI с произвольной моделью не падал.
+    The name is case-insensitive; an unknown name -> the default agent,
+    so OpenWebUI doesn't break when given an arbitrary model.
     """
     if not name:
         return REGISTRY[DEFAULT_AGENT]

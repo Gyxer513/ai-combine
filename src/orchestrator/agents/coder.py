@@ -1,10 +1,10 @@
 """🔨 Coder — Coder Agent.
 
-Работа с репозиториями: чтение кода, написание, ревью. Чувствительность INTERNAL
-(приватный код не уходит в cloaked-модели). Модель: nemotron-super-free (топ
-SWE-Bench free), резерв qwen-coder → qwen-max.
+Working with repositories: reading, writing, and reviewing code. Sensitivity INTERNAL
+(private code does not leak into cloaked models). Model: nemotron-super-free (top
+free model on SWE-Bench), backups qwen-coder → qwen-max.
 
-Инструменты: GitHub (RW) и sandboxed bash (тесты/линтеры, без сети).
+Tools: GitHub (RW) and sandboxed bash (tests/linters, no network).
 """
 
 from __future__ import annotations
@@ -28,25 +28,25 @@ NAME = "coder"
 TITLE = "🔨 Coder"
 SENSITIVITY = DataSensitivity.INTERNAL
 
-# nemotron-super-free (топ SWE-Bench free), резерв qwen-coder → qwen-max.
-# INTERNAL: приватный код — open weights / Alibaba, без cloaked owl.
+# nemotron-super-free (top free model on SWE-Bench), backups qwen-coder → qwen-max.
+# INTERNAL: private code — open weights / Alibaba, no cloaked owl.
 MODELS = ["nemotron-super-free", "qwen-coder", "qwen-max"]
 
 agent = Agent(
     build_model(MODELS),
     deps_type=AgentDeps,
-    instructions=load_prompt(NAME),  # см. пояснение в assistant.py
+    instructions=load_prompt(NAME),  # see the explanation in assistant.py
     name=NAME,
-    capabilities=history_capabilities(),  # ужимание истории по токен-бюджету
+    capabilities=history_capabilities(),  # history compaction by token budget
 )
 register_common_tools(agent)
 register_rag_tool(agent, namespace="coding")
 register_shell_tool(
     agent,
-    profile="coder",  # у брокера: сеть ВЫКЛ для прогона кода
-    allowed=CODER_ALLOWED,  # интерпретаторы ок: sandbox без сети, эксфил невозможен
+    profile="coder",  # broker: network OFF for running code
+    allowed=CODER_ALLOWED,  # interpreters ok: sandbox without network, no exfiltration
     name="run_shell",
-    what="Запуск кода/тестов/линтеров",
-    network_note="БЕЗ сети",
+    what="Run code/tests/linters",
+    network_note="NO network",
 )
-register_github_tools(agent)  # репозитории GitHub: чтение, коммит в ветку, PR
+register_github_tools(agent)  # GitHub repositories: read, commit to a branch, PR

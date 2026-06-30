@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# sandbox-broker — единственный сервис с доступом к docker.sock.
+# sandbox-broker — the only service with access to docker.sock.
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -9,7 +9,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PYTHONUNBUFFERED=1
 
-# Только базовые зависимости (fastapi, docker, structlog) — без rag/telegram.
+# Only the base dependencies (fastapi, docker, structlog) — without rag/telegram.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev --no-install-project

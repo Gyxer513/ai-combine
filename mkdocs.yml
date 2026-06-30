@@ -1,12 +1,12 @@
 site_name: AI Combine
-site_description: Self-hosted мульти-агентный комбайн на дешёвых LLM
+site_description: Self-hosted multi-agent combine built on cheap LLMs
 repo_url: https://github.com/Gyxer513/ai-combine
 repo_name: Gyxer513/ai-combine
 edit_uri: edit/main/docs/
 
 theme:
   name: material
-  language: ru
+  language: en
   palette:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
@@ -14,16 +14,16 @@ theme:
       accent: teal
       toggle:
         icon: material/weather-night
-        name: Светлая тема
+        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: teal
       accent: teal
       toggle:
         icon: material/weather-sunny
-        name: Тёмная тема
+        name: Switch to dark mode
   features:
-    - navigation.instant
+    # navigation.instant is incompatible with the i18n language switcher — omitted
     - navigation.tracking
     - navigation.sections
     - navigation.top
@@ -42,9 +42,28 @@ markdown_extensions:
   - toc:
       permalink: true
 
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: ru
+          name: Русский
+          build: true
+          nav_translations:
+            Overview: Обзор
+            Quickstart: Быстрый старт
+            Agents: Агенты
+            Architecture: Архитектура
+            Security: Безопасность
+
 nav:
-  - Обзор: index.md
-  - Быстрый старт: quickstart.md
-  - Агенты: agents.md
-  - Архитектура: architecture.md
-  - Безопасность: security.md
+  - Overview: index.md
+  - Quickstart: quickstart.md
+  - Agents: agents.md
+  - Architecture: architecture.md
+  - Security: security.md

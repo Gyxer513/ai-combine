@@ -1,14 +1,14 @@
-"""Память агентов на SQLite (переживает рестарт).
+"""Agent memory on SQLite (survives restarts).
 
-Два вида памяти, оба по `conversation_id`:
+Two kinds of memory, both keyed by `conversation_id`:
 
-* **История диалога** — список `ModelMessage` Pydantic AI (сериализуется через
-  `ModelMessagesTypeAdapter` в JSON-колонку), чтобы /chat был многоходовым.
-* **Scratchpad** — key/value заметки, которые агент сохраняет и читает
-  инструментами в рамках разговора.
+* **Conversation history** — a list of Pydantic AI `ModelMessage` (serialized via
+  `ModelMessagesTypeAdapter` into a JSON column) so that /chat is multi-turn.
+* **Scratchpad** — key/value notes that the agent saves and reads with tools within
+  a conversation.
 
-Раньше было in-memory и сбрасывалось при перезапуске; теперь — таблицы в общей
-SQLite-БД (см. persistence.Database). Интерфейс прежний.
+It used to be in-memory and was lost on restart; now these are tables in the shared
+SQLite DB (see persistence.Database). The interface is unchanged.
 """
 
 from __future__ import annotations
@@ -21,16 +21,16 @@ from ..persistence import Database
 
 
 class ConversationStore:
-    """История сообщений и scratchpad-заметки в SQLite."""
+    """Message history and scratchpad notes in SQLite."""
 
     def __init__(self, db: Database, *, max_messages: int = 100) -> None:
         self._db = db
         self._max_messages = max_messages
 
-    # --- история диалога ---
+    # --- conversation history ---
 
     def history(self, conversation_id: str) -> list[ModelMessage]:
-        """Сообщения разговора (пустой список для нового)."""
+        """Messages of the conversation (empty list for a new one)."""
         row = self._db.query_one(
             "SELECT messages FROM conversations WHERE conversation_id = ?",
             (conversation_id,),
@@ -40,7 +40,7 @@ class ConversationStore:
         return list(ModelMessagesTypeAdapter.validate_json(row["messages"]))
 
     def extend_history(self, conversation_id: str, messages: list[ModelMessage]) -> None:
-        """Дописать новые сообщения, удержав хвост в пределах `max_messages`."""
+        """Append new messages, keeping the tail within `max_messages`."""
         if not messages:
             return
         combined = self.history(conversation_id) + list(messages)
@@ -57,7 +57,7 @@ class ConversationStore:
         )
 
     def clear(self, conversation_id: str) -> None:
-        """Забыть историю и заметки конкретного разговора."""
+        """Forget the history and notes of a specific conversation."""
         self._db.execute(
             "DELETE FROM conversations WHERE conversation_id = ?", (conversation_id,)
         )
@@ -85,10 +85,10 @@ class ConversationStore:
         )
         return {r["key"]: r["value"] for r in rows}
 
-    # --- статистика (для дашборда) ---
+    # --- statistics (for the dashboard) ---
 
     def stats(self) -> tuple[int, int]:
-        """(число активных разговоров, суммарное число сообщений)."""
+        """(number of active conversations, total number of messages)."""
         row = self._db.query_one(
             "SELECT COUNT(*) AS c, COALESCE(SUM(msg_count), 0) AS m FROM conversations"
         )

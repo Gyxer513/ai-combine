@@ -1,66 +1,67 @@
 # Security model & disclaimer
 
-AI Combine — персональный self-hosted инструмент. Он **исполняет команды и обращается
-к вашей инфраструктуре** от вашего имени. Перед использованием поймите модель угроз.
+AI Combine is a personal, self-hosted tool. It **executes commands and reaches into your
+infrastructure** on your behalf. Understand the threat model before using it.
 
-## ⚠️ Дисклеймер
+## ⚠️ Disclaimer
 
-- Это личный проект, опубликованный «как есть» (см. [LICENSE](LICENSE), без гарантий).
-- Запускайте **только на своей инфраструктуре и против своих целей**. Сканирование/
-  разведка чужих систем без разрешения — незаконно. Промпт recon (SecOps-агент) это
-  ограничивает, но техническая граница — на вас.
-- Агенты вызывают LLM (часть — внешние/cloaked провайдеры). Не отправляйте через
-  публичные/cloaked модели чувствительные данные. Выбор модели завязан на
-  `DataSensitivity` (PUBLIC/INTERNAL/SECRET) — проверьте раскладку под себя.
+- This is a personal project, published as-is (see [LICENSE](LICENSE), no warranty).
+- Run it **only on your own infrastructure and against your own targets**. Scanning or
+  recon of someone else's systems without permission is illegal. The recon (SecOps)
+  agent's prompt restricts this, but the technical boundary is on you.
+- The agents call LLMs (some via external/cloaked providers). Don't send sensitive data
+  through public/cloaked models. Model choice is tied to `DataSensitivity`
+  (PUBLIC/INTERNAL/SECRET) — review the mapping for your case.
 
-## Сетевой доступ к оркестратору
+## Network access to the orchestrator
 
-- Оркестратор вызывает агентов, у которых есть доступ к **GitHub PAT, RAG и
-  sandbox-broker** — публиковать его наружу нельзя. В `docker-compose.yml` порт
-  забинден на `127.0.0.1:8000` (только localhost); для доступа из LAN ставьте перед
-  ним обратный прокси с TLS и аутентификацией.
-- **Обязательный Bearer-токен** `ORCHESTRATOR_API_TOKEN` проверяется на `/chat`,
-  `/agents`, `/v1/*` (см. `require_token` в `api/routes.py`). Тот же токен берут боты и
-  воркеры; в OpenWebUI он указывается как «ключ API» подключения. Если токен **не
-  задан** — enforcement выключен (полагаемся только на bind localhost), и оркестратор
-  громко предупреждает в логах при старте. Для прод-использования задайте токен.
+- The orchestrator drives agents that hold a **GitHub PAT, RAG and sandbox-broker**
+  access — it must not be exposed. In `docker-compose.yml` the port is bound to
+  `127.0.0.1:8000` (localhost only); for LAN access put a reverse proxy with TLS and
+  authentication in front of it.
+- A **mandatory Bearer token** `ORCHESTRATOR_API_TOKEN` is checked on `/chat`, `/agents`,
+  `/v1/*` (see `require_token` in `api/routes.py`). The bots and workers use the same
+  token; in OpenWebUI it's the connection's "API key". If the token is **unset**,
+  enforcement is off (relying on the localhost bind only) and the orchestrator warns
+  loudly in the logs at startup. Set the token for production use.
 
-## Привилегии и изоляция
+## Privileges and isolation
 
-- **sandbox-broker — единственный сервис с доступом к `docker.sock`.** Это привилегия:
-  компрометация брокера = доступ к Docker/хосту. Поэтому он минимален (фиксированный
-  API `{profile, command}`, allowlist и hardening захардкожены), наружу порт не
-  публикуется (только docker-сеть). Оркестратор docker.sock **не** имеет — он шлёт
-  команды брокеру по HTTP, поэтому RCE/инъекция в оркестраторе не даёт прямого доступа
-  к хосту.
-- **Sandbox-контейнеры** эфемерны (`--rm`), non-root (uid 10001), `cap_drop ALL`,
-  `no-new-privileges`, read-only rootfs + tmpfs, лимиты mem/cpu/pids, таймаут.
-  Профиль `coder` — без сети; `secops` — с сетью (для скана своей инфры).
-- **Allowlist бинарей** (`src/orchestrator/tools/guard.py`) + защита от инъекций
-  (`$()`, backtick, цепочки на неразрешённый бинарь). Вывод инструментов помечается
-  как недоверенный (`wrap_untrusted`) против prompt injection из ответов целей/заметок.
-  Allowlist — это **guardrail, а не граница безопасности**: настоящая граница — сам
-  sandbox (эфемерный, без секретов, без сети для coder, без docker.sock). Allowlist
-  фильтрует первый бинарь *и* опасные аргументы разрешённых бинарей, через которые
-  можно выйти в произвольное исполнение (`nmap --script`, `nc -e`, `nuclei -code`,
-  `curl file://`); интерпретаторы и `awk`/`gawk` (есть `system()`) из SecOps-профиля
-  исключены намеренно. Полностью перечислить все escape-поверхности невозможно — не
-  полагайтесь на allowlist как на единственный рубеж.
+- **sandbox-broker is the only service with access to `docker.sock`.** That's a
+  privilege: compromising the broker = access to Docker/the host. So it is minimal (a
+  fixed `{profile, command}` API, allowlist and hardening hardcoded) and its port is not
+  published (docker network only). The orchestrator does **not** hold docker.sock — it
+  sends commands to the broker over HTTP, so RCE/injection in the orchestrator gives no
+  direct host access.
+- **Sandbox containers** are ephemeral (`--rm`), non-root (uid 10001), `cap_drop ALL`,
+  `no-new-privileges`, read-only rootfs + tmpfs, with mem/cpu/pids limits and a timeout.
+  The `coder` profile has no network; `secops` has network (for scanning your own infra).
+- **Binary allowlist** (`src/orchestrator/tools/guard.py`) + injection defenses (`$()`,
+  backtick, chains to a non-allowlisted binary). Tool output is marked untrusted
+  (`wrap_untrusted`) against prompt injection from target responses/notes. The allowlist
+  is a **guardrail, not a security boundary**: the real boundary is the sandbox itself
+  (ephemeral, no secrets, no network for coder, no docker.sock). The allowlist filters
+  the first binary *and* dangerous arguments of allowed binaries that could break out
+  into arbitrary execution (`nmap --script`, `nc -e`, `nuclei -code`, `curl file://`);
+  interpreters and `awk`/`gawk` (which have `system()`) are deliberately excluded from
+  the SecOps profile. Enumerating every escape surface is impossible — don't rely on the
+  allowlist as the only line of defense.
 
-## Доступы и секреты
+## Access and secrets
 
-- **Секреты только в `.env`** (в `.gitignore`; `.env.example` — шаблон). Никогда не
-  коммитьте `.env`.
-- **Telegram**: whitelist по числовым user_id, по умолчанию **fail-closed** (пустой
-  список = никого). Bootstrap-режим (пускать всех) — только явным
-  `TELEGRAM_ALLOW_BOOTSTRAP=true` для локальной разработки.
-- **Nextcloud**: используйте app password (а не основной пароль), по возможности
-  отдельного read-аккаунта.
-- **GitHub-скил (coder)**: PAT, scoped на конкретный репозиторий.
-- `searxng/settings.yml` содержит дев-`secret_key` — на проде замените своим.
+- **Secrets only in `.env`** (in `.gitignore`; `.env.example` is the template). Never
+  commit `.env`.
+- **Telegram**: whitelist by numeric user IDs, **fail-closed** by default (empty list =
+  nobody). Bootstrap mode (allow everyone) only via an explicit
+  `TELEGRAM_ALLOW_BOOTSTRAP=true` for local development.
+- **Nextcloud**: use an app password (not your main password), ideally a separate
+  read-only account.
+- **GitHub skill (coder)**: a PAT scoped to a specific repository.
+- `searxng/settings.yml` contains a dev `secret_key` — replace it with your own in
+  production.
 
-## Сообщить об уязвимости
+## Reporting a vulnerability
 
-Откройте приватный security advisory в GitHub этого репозитория (Security → Report a
-vulnerability) или issue без чувствительных деталей. Это хобби-проект — фиксы по
-возможности, без SLA.
+Open a private security advisory on this repo (Security → Report a vulnerability) or an
+issue without sensitive details. This is a hobby project — fixes on a best-effort basis,
+no SLA.

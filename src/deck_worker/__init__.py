@@ -1,5 +1,5 @@
-"""Deck-worker: автономное выполнение задач из Nextcloud Deck.
+"""Deck-worker: autonomous execution of tasks from Nextcloud Deck.
 
-Опрашивает доску, берёт карточки из To Do, роутит по метке нужному агенту,
-выполняет через оркестратор, пишет результат комментарием и двигает в Done.
+Polls the board, takes cards from To Do, routes each by label to the right agent,
+runs it via the orchestrator, writes the result as a comment, and moves it to Done.
 """

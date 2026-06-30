@@ -1,10 +1,10 @@
-"""Индексатор RAG: Nextcloud (Notes + WebDAV) → чанки → embed (API) → Qdrant.
+"""RAG indexer: Nextcloud (Notes + WebDAV) → chunks → embed (API) → Qdrant.
 
-Запуск:
+Run:
     uv run python -m src.rag_indexer.main
 
-Манифест `data/rag_manifest.json` хранит хэши документов — неизменённые
-пропускаются, чтобы не гонять embedding API повторно (важно при платном API).
+The `data/rag_manifest.json` manifest stores document hashes — unchanged documents are
+skipped so the embedding API isn't called again (important with a paid API).
 """
 
 from __future__ import annotations
@@ -28,11 +28,11 @@ from .sources.webdav import fetch_webdav
 log = structlog.get_logger()
 
 MANIFEST = Path("data/rag_manifest.json")
-EMBED_BATCH = 10  # лимит батча text-embedding-v4
+EMBED_BATCH = 10  # text-embedding-v4 batch limit
 
 
 async def _embed_all(embedder: EmbeddingClient, chunks: list[str]) -> list[list[float]]:
-    """Эмбеддить чанки батчами."""
+    """Embed chunks in batches."""
     vectors: list[list[float]] = []
     for i in range(0, len(chunks), EMBED_BATCH):
         vectors.extend(await embedder.embed(chunks[i : i + EMBED_BATCH]))
@@ -42,7 +42,7 @@ async def _embed_all(embedder: EmbeddingClient, chunks: list[str]) -> list[list[
 async def index_document(
     doc: RagDocument, embedder: EmbeddingClient, store: VectorStore, manifest: dict[str, str]
 ) -> int:
-    """Проиндексировать документ. Возврат: число записанных чанков (0 если скип)."""
+    """Index a document. Returns: number of chunks written (0 if skipped)."""
     content_hash = doc.content_hash()
     if manifest.get(doc.doc_id) == content_hash:
         return 0
@@ -78,7 +78,7 @@ async def index_document(
 
 
 async def run(manifest: dict[str, str]) -> dict[str, int]:
-    """Один проход индексации. Мутирует `manifest`, возвращает статистику."""
+    """A single indexing pass. Mutates `manifest`, returns statistics."""
     store = VectorStore()
     stats = {"docs": 0, "indexed": 0, "skipped": 0, "chunks": 0}
     try:
@@ -113,14 +113,14 @@ def _save_manifest(manifest: dict[str, str]) -> None:
 
 def _format_stats(stats: dict[str, int]) -> str:
     return (
-        f"Готово: документов {stats['docs']}, "
-        f"проиндексировано {stats['indexed']}, пропущено {stats['skipped']}, "
-        f"чанков записано {stats['chunks']}."
+        f"Done: documents {stats['docs']}, "
+        f"indexed {stats['indexed']}, skipped {stats['skipped']}, "
+        f"chunks written {stats['chunks']}."
     )
 
 
 async def _amain() -> None:
-    """Один проход или цикл по интервалу (RAG_INDEX_INTERVAL_MIN)."""
+    """A single pass or a loop by interval (RAG_INDEX_INTERVAL_MIN)."""
     interval = settings.rag_index_interval_min
     manifest = await asyncio.to_thread(_load_manifest)
     while True:

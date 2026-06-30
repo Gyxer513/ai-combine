@@ -1,4 +1,4 @@
-"""Тесты Этапа 3 (RAG): чанкер, embedder, инструмент search_knowledge_base."""
+"""Stage 3 tests (RAG): chunker, embedder, search_knowledge_base tool."""
 
 from __future__ import annotations
 
@@ -21,11 +21,11 @@ from src.orchestrator.tools.memory import ConversationStore
 from src.orchestrator.tools.web_search import WebSearchClient
 from src.rag_indexer.chunker import chunk_text
 
-# --- чанкер ---
+# --- chunker ---
 
 
 def test_chunker_splits_and_overlaps():
-    text = " ".join(f"слово{i}" for i in range(500))
+    text = " ".join(f"word{i}" for i in range(500))
     chunks = chunk_text(text, max_tokens=50, overlap=10)
     assert len(chunks) > 1
     assert all(c.strip() for c in chunks)
@@ -55,10 +55,10 @@ async def test_embedder_preserves_order():
     async with httpx.AsyncClient(transport=transport) as http:
         client = EmbeddingClient(http, base_url="http://x/v1", api_key="k")
         vectors = await client.embed(["a", "b"])
-    assert vectors == [[0.1], [0.2]]  # отсортированы по index
+    assert vectors == [[0.1], [0.2]]  # sorted by index
 
 
-# --- инструмент search_knowledge_base ---
+# --- search_knowledge_base tool ---
 
 
 class _StubEmbedder:
@@ -87,7 +87,7 @@ def _deps_with_rag(store: _StubStore) -> AgentDeps:
 
 
 async def test_search_knowledge_base_returns_hits():
-    hit = Hit(text="моя заметка про Python", path="Notes/Personal/Py", source="notes", score=0.9)
+    hit = Hit(text="my note about Python", path="Notes/Personal/Py", source="notes", score=0.9)
     stub = _StubStore([hit])
     captured: dict = {}
 
@@ -96,14 +96,14 @@ async def test_search_knowledge_base_returns_hits():
             for p in m.parts:
                 if isinstance(p, ToolReturnPart):
                     captured["tool_result"] = p.content
-                    return ModelResponse(parts=[TextPart(content="готово")])
+                    return ModelResponse(parts=[TextPart(content="done")])
         return ModelResponse(
-            parts=[ToolCallPart(tool_name="search_knowledge_base", args={"query": "питон"})]
+            parts=[ToolCallPart(tool_name="search_knowledge_base", args={"query": "python"})]
         )
 
     with assistant.agent.override(model=FunctionModel(fn)):
-        result = await assistant.agent.run("вопрос", deps=_deps_with_rag(stub))
+        result = await assistant.agent.run("question", deps=_deps_with_rag(stub))
 
-    assert stub.asked_namespace == "personal"  # Assistant ищет в personal
-    assert "моя заметка про Python" in captured["tool_result"]
-    assert result.output == "готово"
+    assert stub.asked_namespace == "personal"  # Assistant searches in personal
+    assert "my note about Python" in captured["tool_result"]
+    assert result.output == "done"

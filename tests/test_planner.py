@@ -1,4 +1,4 @@
-"""Тесты планировщика: декомпозиция проекта в карточки Deck (slice_project)."""
+"""Planner tests: decomposing a project into Deck cards (slice_project)."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ from src.orchestrator.tools.deck import Subtask, plan_to_cards
 
 
 def _mock_client(handler):
-    """Фабрика httpx.AsyncClient на MockTransport (подменяет конструктор в tool).
+    """httpx.AsyncClient factory on MockTransport (replaces the constructor in the tool).
 
-    Реальный класс захватываем ДО патча, иначе factory звала бы саму себя.
+    We capture the real class BEFORE patching, otherwise the factory would call itself.
     """
     real_cls = httpx.AsyncClient
 
@@ -29,7 +29,7 @@ def _nc(monkeypatch):
     monkeypatch.setattr(settings, "nextcloud_url", "http://nc.test")
     monkeypatch.setattr(settings, "nextcloud_user", "u")
     monkeypatch.setattr(settings, "nextcloud_app_password", "p")
-    monkeypatch.setattr(settings, "deck_board", "Задачи AI Combine")
+    monkeypatch.setattr(settings, "deck_board", "AI Combine Tasks")
     monkeypatch.setattr(settings, "deck_todo_stack", "To Do")
     monkeypatch.setattr(settings, "deck_label_agent_map", "sec:recon,code:coder,ask:assistant")
 
@@ -42,7 +42,7 @@ async def test_plan_to_cards_creates_and_labels(monkeypatch, _nc):
         if path.endswith("/boards"):
             board = {
                 "id": 7,
-                "title": "Задачи AI Combine",
+                "title": "AI Combine Tasks",
                 "labels": [{"id": 11, "title": "code"}],
             }
             return httpx.Response(200, json=[board])
@@ -59,28 +59,28 @@ async def test_plan_to_cards_creates_and_labels(monkeypatch, _nc):
     monkeypatch.setattr(deck_tool.httpx, "AsyncClient", _mock_client(handler))
 
     out = await plan_to_cards(
-        "Отчёт по МИС",
+        "MIS report",
         [
-            Subtask(title="Схема БД", agent="coder", acceptance="есть DDL"),
-            Subtask(title="Сбор требований", agent="assistant"),
+            Subtask(title="DB schema", agent="coder", acceptance="DDL exists"),
+            Subtask(title="Requirements gathering", agent="assistant"),
         ],
     )
-    assert "Создал 2 карточек" in out
+    assert "Created 2 cards" in out
     assert len(calls["cards"]) == 2
-    # метка code есть на доске -> навешена на карточку coder; для assistant (ask) метки нет
+    # the code label exists on the board -> assigned to the coder card; assistant (ask) has none
     assert len(calls["labels"]) == 1
-    assert "метки нет на доске" in out  # для assistant-подзадачи
+    assert "label not on the board" in out  # for the assistant subtask
 
 
 async def test_plan_to_cards_rejects_unknown_agent(_nc):
     out = await plan_to_cards("X", [Subtask(title="t", agent="wizard")])
-    assert "Неизвестные исполнители" in out and "wizard" in out
+    assert "Unknown executors" in out and "wizard" in out
 
 
 async def test_plan_to_cards_no_nextcloud(monkeypatch):
     monkeypatch.setattr(settings, "nextcloud_url", "")
     out = await plan_to_cards("X", [Subtask(title="t", agent="coder")])
-    assert "Deck недоступен" in out
+    assert "Deck unavailable" in out
 
 
 async def test_deck_client_assign_label_request():

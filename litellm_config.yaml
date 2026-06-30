@@ -1,11 +1,11 @@
 # ============================================================
-# AI Combine — LiteLLM Proxy конфиг (финальная раскладка)
-# Единый OpenAI-совместимый API над Alibaba Model Studio + OpenRouter.
-# Все агенты и фронтенды ходят в http://litellm:4000/v1 с LITELLM_MASTER_KEY.
+# AI Combine — LiteLLM Proxy config (final layout)
+# A single OpenAI-compatible API over Alibaba Model Studio + OpenRouter.
+# All agents and frontends call http://litellm:4000/v1 with LITELLM_MASTER_KEY.
 # ============================================================
 
 model_list:
-  # === Alibaba dashscope-intl (Qwen-семейство) ===
+  # === Alibaba dashscope-intl (Qwen family) ===
   - model_name: qwen-max
     litellm_params:
       model: openai/qwen3-max
@@ -27,33 +27,33 @@ model_list:
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
 
-  # === Alibaba: сторонние модели GLM / DeepSeek ===
-  # ВАЖНО: вопреки старому предположению про отдельный MaaS-workspace URL,
-  # для этого аккаунта GLM-5.1 и DeepSeek раздаются прямо через dashscope-intl
-  # (тот же ключ, что у Qwen). Проверено curl'ом: MaaS-workspace эндпоинт даёт 401.
+  # === Alibaba: third-party models GLM / DeepSeek ===
+  # IMPORTANT: contrary to the old assumption about a separate MaaS workspace URL,
+  # for this account GLM-5.1 and DeepSeek are served directly via dashscope-intl
+  # (the same key as Qwen). Verified with curl: the MaaS workspace endpoint returns 401.
   - model_name: glm-5.1
     litellm_params:
       model: openai/glm-5.1
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
       extra_body:
-        enable_thinking: true # дефолт для recon — глубокое reasoning
+        enable_thinking: true # default for recon — deep reasoning
   - model_name: glm-5.1-fast
     litellm_params:
       model: openai/glm-5.1
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
       extra_body:
-        enable_thinking: false # без thinking — быстрее, дешевле (coder-план)
+        enable_thinking: false # no thinking — faster, cheaper (coder plan)
   - model_name: deepseek-v3
     litellm_params:
-      # На dashscope-intl актуальный id — deepseek-v3.2 (v3/v3.1/r1 дают 404).
+      # On dashscope-intl the current id is deepseek-v3.2 (v3/v3.1/r1 return 404).
       model: openai/deepseek-v3.2
       api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       api_key: os.environ/ALIBABA_API_KEY
 
-  # === Embeddings (Alibaba API, для RAG) ===
-  # Через API, без локального TEU/BGE-M3 — экономим RAM на слабом сервере.
+  # === Embeddings (Alibaba API, for RAG) ===
+  # Via API, without a local TEI/BGE-M3 — saving RAM on a low-spec server.
   - model_name: embed
     litellm_params:
       model: openai/text-embedding-v4
@@ -70,15 +70,15 @@ model_list:
       model: openrouter/openrouter/owl-alpha
       api_key: os.environ/OPENROUTER_API_KEY
 
-  # === OpenRouter платные (опционально) ===
+  # === OpenRouter paid (optional) ===
   - model_name: claude-sonnet
     litellm_params:
       model: openrouter/anthropic/claude-sonnet-4.5
       api_key: os.environ/OPENROUTER_API_KEY
 
-# Пер-агентные fallback-цепочки реализованы в оркестраторе через Pydantic AI
-# FallbackModel (см. agents/*.py), а не здесь: LiteLLM-fallbacks ключуются по
-# реальным model_name, а не по именам агентов. Тут оставляем только retry/timeout.
+# Per-agent fallback chains are implemented in the orchestrator via Pydantic AI
+# FallbackModel (see agents/*.py), not here: LiteLLM fallbacks are keyed by
+# real model_name values, not by agent names. Here we keep only retry/timeout.
 router_settings:
   routing_strategy: simple-shuffle
   num_retries: 3

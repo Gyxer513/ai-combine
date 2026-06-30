@@ -1,14 +1,14 @@
-"""GitHub-скил coder: чтение репозитория и внесение изменений через PR.
+"""coder GitHub skill: reading a repository and making changes via PR.
 
-Перемычка для хоумлаба: рабочий GitLab за VPN недоступен надёжно, поэтому coder
-пушит в GitHub (доступен отовсюду), а синхронизацию GitHub↔рабочий GitLab делает
-человек вручную.
+A homelab bridge: the work GitLab behind the VPN is not reliably reachable, so coder
+pushes to GitHub (reachable from anywhere), and a human syncs GitHub↔work GitLab
+manually.
 
-Работает через GitHub REST API с PAT (`Authorization: Bearer`). Токен — scoped на
-конкретный репозиторий. Все изменения идут в feature-ветку + Pull Request; прямой
-записи в основную ветку нет, человек ревьюит и мержит.
+Works through the GitHub REST API with a PAT (`Authorization: Bearer`). The token is
+scoped to a specific repository. All changes go into a feature branch + Pull Request;
+there is no direct write to the main branch, a human reviews and merges.
 
-Инструменты coder: github_list_tree, github_read_file, github_commit_files, github_open_pr.
+coder tools: github_list_tree, github_read_file, github_commit_files, github_open_pr.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ log = structlog.get_logger()
 
 
 class GitHubClient:
-    """Тонкий клиент к GitHub REST API для одного репозитория `owner/name`."""
+    """Thin client to the GitHub REST API for a single `owner/name` repository."""
 
     def __init__(
         self,
@@ -96,7 +96,7 @@ class GitHubClient:
             return
         base_sha = await self._branch_sha(base)
         if base_sha is None:
-            raise httpx.HTTPError(f"базовая ветка {base} не найдена")
+            raise httpx.HTTPError(f"base branch {base} not found")
         resp = await self._http.post(
             self._url("/git/refs"),
             json={"ref": f"refs/heads/{branch}", "sha": base_sha},
@@ -115,11 +115,11 @@ class GitHubClient:
         return resp.json().get("sha") if resp.status_code == 200 else None
 
     async def commit_files(self, branch: str, message: str, files: list[dict]) -> int:
-        """Записать набор файлов в feature-ветку (создаётся из default при необходимости).
+        """Write a set of files to a feature branch (created from default if needed).
 
-        GitHub Contents API коммитит по одному файлу — здесь это цикл (по коммиту на
-        файл). Для перемычки с ручной синхронизацией чистота истории неважна.
-        Возвращает число записанных файлов.
+        The GitHub Contents API commits one file at a time — here that is a loop (one
+        commit per file). For a bridge with manual syncing, a clean history does not
+        matter. Returns the number of files written.
         """
         await self.ensure_branch(branch, self.default_branch)
         for f in files:
@@ -153,82 +153,82 @@ class GitHubClient:
 
 
 def register_github_tools(agent: Agent) -> None:
-    """Навесить на агента GitHub-инструменты (no-op, если GitHub не сконфигурирован)."""
+    """Attach GitHub tools to the agent (no-op if GitHub is not configured)."""
 
     def _client(ctx: RunContext) -> GitHubClient | None:
         return getattr(ctx.deps, "github", None)
 
     @agent.tool
     async def github_list_tree(ctx: RunContext, path: str = "", ref: str = "") -> str:
-        """Список файлов репозитория (рекурсивно, можно отфильтровать по path).
+        """List repository files (recursively, optionally filtered by path).
 
         Args:
-            path: Префикс пути (пусто = весь репозиторий).
-            ref: Ветка/тег (пусто = основная ветка).
+            path: Path prefix (empty = the whole repository).
+            ref: Branch/tag (empty = the main branch).
         """
         gh = _client(ctx)
         if gh is None or not gh.configured:
-            return "GitHub не настроен (нет GITHUB_TOKEN/REPO)."
+            return "GitHub is not configured (no GITHUB_TOKEN/REPO)."
         items = await gh.list_tree(path, ref or None)
-        return "\n".join(f"{i.get('type', '?')}\t{i.get('path', '')}" for i in items) or "(пусто)"
+        return "\n".join(f"{i.get('type', '?')}\t{i.get('path', '')}" for i in items) or "(empty)"
 
     @agent.tool
     async def github_read_file(ctx: RunContext, path: str, ref: str = "") -> str:
-        """Прочитать файл из репозитория.
+        """Read a file from the repository.
 
         Args:
-            path: Путь к файлу.
-            ref: Ветка/тег (пусто = основная ветка).
+            path: Path to the file.
+            ref: Branch/tag (empty = the main branch).
         """
         gh = _client(ctx)
         if gh is None or not gh.configured:
-            return "GitHub не настроен."
+            return "GitHub is not configured."
         try:
             content = await gh.read_file(path, ref or None)
         except httpx.HTTPStatusError as exc:
-            return f"[не удалось прочитать {path}: {exc.response.status_code}]"
+            return f"[could not read {path}: {exc.response.status_code}]"
         return wrap_untrusted(f"github:{path}", content)
 
     @agent.tool
     async def github_commit_files(
         ctx: RunContext, branch: str, message: str, files: list[dict]
     ) -> str:
-        """Закоммитить набор файлов в feature-ветку (создаётся при необходимости).
+        """Commit a set of files to a feature branch (created if needed).
 
-        НЕ коммить в основную ветку — только feature-ветка, потом открой PR.
+        Do NOT commit to the main branch — only a feature branch, then open a PR.
 
         Args:
-            branch: Имя feature-ветки (например feature/mis-report).
-            message: Сообщение коммита.
-            files: Список {"path": "путь", "content": "содержимое"}.
+            branch: Feature branch name (e.g. feature/mis-report).
+            message: Commit message.
+            files: List of {"path": "path", "content": "content"}.
         """
         gh = _client(ctx)
         if gh is None or not gh.configured:
-            return "GitHub не настроен."
+            return "GitHub is not configured."
         if branch == gh.default_branch:
-            return f"Нельзя коммитить в {gh.default_branch}. Используй feature-ветку + PR."
+            return f"Cannot commit to {gh.default_branch}. Use a feature branch + PR."
         try:
             n = await gh.commit_files(branch, message, files)
         except httpx.HTTPStatusError as exc:
-            return f"[ошибка коммита: {exc.response.status_code} {exc.response.text[:200]}]"
-        return f"Записано {n} файл(ов) в ветку {branch}."
+            return f"[commit error: {exc.response.status_code} {exc.response.text[:200]}]"
+        return f"Wrote {n} file(s) to branch {branch}."
 
     @agent.tool
     async def github_open_pr(
         ctx: RunContext, branch: str, title: str, description: str = ""
     ) -> str:
-        """Открыть Pull Request из feature-ветки в основную (на ревью человеку).
+        """Open a Pull Request from a feature branch into the main one (for human review).
 
         Args:
-            branch: Feature-ветка с изменениями.
-            title: Заголовок PR.
-            description: Описание (что сделано).
+            branch: Feature branch with the changes.
+            title: PR title.
+            description: Description (what was done).
         """
         gh = _client(ctx)
         if gh is None or not gh.configured:
-            return "GitHub не настроен."
+            return "GitHub is not configured."
         try:
             pr = await gh.open_pr(branch, title, description)
         except httpx.HTTPStatusError as exc:
-            return f"[ошибка PR: {exc.response.status_code} {exc.response.text[:200]}]"
-        return f"PR открыт: {pr.get('html_url', pr.get('number', '?'))}"
+            return f"[PR error: {exc.response.status_code} {exc.response.text[:200]}]"
+        return f"PR opened: {pr.get('html_url', pr.get('number', '?'))}"

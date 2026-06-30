@@ -1,16 +1,16 @@
-"""Research-worker — регулярный ресёрч идей заработка (assistant), без жора токенов.
+"""Research-worker — periodic research of money-making ideas (assistant), token-frugal.
 
-НЕ использует agentic tool-loop (он жжёт токены растущим контекстом). Вместо этого
-детерминированный конвейер на один прогон:
+Does NOT use an agentic tool-loop (it burns tokens with a growing context). Instead a
+deterministic pipeline runs once per pass:
 
-    ротация темы (по дате) -> N поисков SearXNG (0 токенов) -> ОДИН вызов дешёвой
-    модели (qwen-flash): «из этих результатов дай K новых идей, вот что уже есть —
-    не повторяй» -> карточки на Deck-доске «Идеи».
+    rotate the theme (by date) -> N SearXNG searches (0 tokens) -> ONE call to a cheap
+    model (qwen-flash): "from these results give K new ideas, here is what already
+    exists — don't repeat" -> cards on the "Ideas" Deck board.
 
-Один LLM-вызов на прогон + потолок вывода = предсказуемо копейки.
+One LLM call per pass + an output cap = predictably pennies.
 
-Запуск: `python -m src.research_worker.main`
-(цикл при RESEARCH_INTERVAL_MIN>0, иначе один проход).
+Run: `python -m src.research_worker.main`
+(loops when RESEARCH_INTERVAL_MIN>0, otherwise a single pass).
 """
 
 from __future__ import annotations
@@ -30,10 +30,11 @@ from src.orchestrator.tools.web_search import WebSearchClient
 log = structlog.get_logger()
 
 _SYSTEM = (
-    "Ты — assistant, помощник по поиску возможностей заработка для разработчика-"
-    "самостройщика (self-hosted, любит автоматизацию, AI, нестандартные подходы). "
-    "Предлагаешь КОНКРЕТНЫЕ реализуемые идеи под его профиль, а не общие советы. "
-    "Отвечаешь СТРОГО валидным JSON-массивом, без пояснений и markdown."
+    "You are an assistant that helps find money-making opportunities for a "
+    "self-builder developer (self-hosted, loves automation, AI, unconventional "
+    "approaches). You propose CONCRETE, actionable ideas tailored to his profile, "
+    "not generic advice. You respond with a STRICTLY valid JSON array, with no "
+    "explanations or markdown. Write the ideas in Russian (the user's language)."
 )
 
 
@@ -48,35 +49,35 @@ class Idea:
     def as_description(self) -> str:
         parts = [self.pitch]
         if self.effort:
-            parts.append(f"**Усилия:** {self.effort}")
+            parts.append(f"**Effort:** {self.effort}")
         if self.potential:
-            parts.append(f"**Потенциал:** {self.potential}")
+            parts.append(f"**Potential:** {self.potential}")
         if self.source:
-            parts.append(f"**Источник:** {self.source}")
+            parts.append(f"**Source:** {self.source}")
         return "\n\n".join(p for p in parts if p)
 
 
 def pick_theme(themes: list[str], ordinal: int) -> str:
-    """Тема по ротации (детерминированно от порядкового номера дня)."""
+    """Theme by rotation (deterministic from the day's ordinal number)."""
     return themes[ordinal % len(themes)]
 
 
 def build_prompt(theme: str, snippets: str, existing: list[str], k: int) -> str:
-    """Пользовательский промпт: тема + выдержки поиска + антидубль."""
-    existing_block = "\n".join(f"- {t}" for t in sorted(existing)) or "(пусто)"
+    """User prompt: theme + search excerpts + de-duplication."""
+    existing_block = "\n".join(f"- {t}" for t in sorted(existing)) or "(empty)"
     return (
-        f"Тема для идей: {theme}\n\n"
-        f"Свежие результаты поиска:\n{snippets or '(поиск пуст)'}\n\n"
-        f"Уже предложено ранее (НЕ повторяй и не перефразируй это):\n{existing_block}\n\n"
-        f"Дай {k} НОВЫЕ конкретные идеи заработка по теме. Формат — JSON-массив "
-        'объектов с полями: "title" (кратко, до 80 симв.), "pitch" (1-2 предложения), '
-        '"effort" (низкие/средние/высокие), "potential" (оценка дохода в месяц), '
-        '"source" (url из результатов или ""). Только JSON.'
+        f"Theme for ideas: {theme}\n\n"
+        f"Fresh search results:\n{snippets or '(search empty)'}\n\n"
+        f"Already proposed earlier (do NOT repeat or rephrase these):\n{existing_block}\n\n"
+        f"Give {k} NEW concrete money-making ideas on the theme. Format: a JSON array "
+        'of objects with fields: "title" (brief, up to 80 chars), "pitch" (1-2 sentences), '
+        '"effort" (low/medium/high), "potential" (estimated monthly income), '
+        '"source" (url from the results or ""). JSON only. Write the ideas in Russian.'
     )
 
 
 def parse_ideas(content: str) -> list[Idea]:
-    """Достать JSON-массив идей из ответа модели (терпимо к обёрткам/мусору)."""
+    """Extract the JSON array of ideas from the model's reply (tolerant of wrappers/junk)."""
     start, end = content.find("["), content.rfind("]")
     if start == -1 or end == -1 or end < start:
         return []
@@ -104,10 +105,10 @@ def parse_ideas(content: str) -> list[Idea]:
 
 
 async def gather_snippets(web: WebSearchClient, theme: str, n_searches: int) -> str:
-    """Сделать несколько поисков по теме и собрать компактные выдержки."""
+    """Run a few searches on the theme and collect compact excerpts."""
     queries = [
-        f"{theme} идеи заработка 2026",
-        f"{theme} как монетизировать",
+        f"{theme} money-making ideas 2026",
+        f"{theme} how to monetize",
         f"{theme} side business",
     ][: max(1, n_searches)]
     lines: list[str] = []
@@ -118,7 +119,7 @@ async def gather_snippets(web: WebSearchClient, theme: str, n_searches: int) -> 
 
 
 async def call_model(http: httpx.AsyncClient, system: str, user: str) -> str:
-    """Один вызов дешёвой модели через LiteLLM (без tool-loop)."""
+    """A single cheap-model call via LiteLLM (no tool-loop)."""
     resp = await http.post(
         f"{settings.litellm_base_url.rstrip('/')}/chat/completions",
         headers={"Authorization": f"Bearer {settings.litellm_master_key}"},
@@ -138,7 +139,7 @@ async def call_model(http: httpx.AsyncClient, system: str, user: str) -> str:
 
 
 async def run_once(http: httpx.AsyncClient, deck: DeckClient, *, ordinal: int) -> int:
-    """Один прогон ресёрча. Возврат: сколько новых карточек создано."""
+    """A single research pass. Returns: how many new cards were created."""
     themes = settings.research_theme_list
     if not themes:
         log.warning("research.no_themes")
@@ -180,7 +181,7 @@ async def run_once(http: httpx.AsyncClient, deck: DeckClient, *, ordinal: int) -
 
 async def run() -> None:
     if not (settings.nextcloud_url and settings.nextcloud_user and settings.nextcloud_app_password):
-        raise SystemExit("Не заданы NEXTCLOUD_URL/USER/APP_PASSWORD для research-worker")
+        raise SystemExit("NEXTCLOUD_URL/USER/APP_PASSWORD are not set for the research-worker")
 
     interval = settings.research_interval_min
     async with httpx.AsyncClient() as http:
@@ -194,7 +195,7 @@ async def run() -> None:
         while True:
             try:
                 await run_once(http, deck, ordinal=date.today().toordinal())
-            except Exception as exc:  # noqa: BLE001 — цикл не должен падать
+            except Exception as exc:  # noqa: BLE001 — the loop must not crash
                 log.warning("research.cycle_failed", error=str(exc))
             if interval <= 0:
                 return

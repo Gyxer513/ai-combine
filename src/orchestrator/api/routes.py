@@ -1,11 +1,11 @@
-"""HTTP-роуты оркестратора.
+"""Orchestrator HTTP routes.
 
-Два набора эндпоинтов:
+Two sets of endpoints:
 
-* Нативный — `/agents`, `/chat` (многоходовой по `conversation_id`).
-* OpenAI-совместимый — `/v1/models`, `/v1/chat/completions` (stream + non-stream),
-  чтобы OpenWebUI ходил в оркестратор как в обычный OpenAI-бэкенд, а оркестратор
-  уже выбирал агента по имени модели и сам звал LiteLLM.
+* Native — `/agents`, `/chat` (multi-turn by `conversation_id`).
+* OpenAI-compatible — `/v1/models`, `/v1/chat/completions` (stream + non-stream),
+  so OpenWebUI talks to the orchestrator like an ordinary OpenAI backend, while the
+  orchestrator selects an agent by model name and calls LiteLLM itself.
 """
 
 from __future__ import annotations
@@ -46,8 +46,8 @@ log = structlog.get_logger()
 
 
 async def require_token(authorization: str | None = Header(default=None)) -> None:
-    """Проверка Bearer-токена. Пустой токен в конфиге — не enforce (см. предупреждение
-    при старте + bind localhost). Защищает агенто-вызывающие эндпоинты."""
+    """Verify the Bearer token. An empty token in the config means no enforcement (see the
+    startup warning + bind localhost). Protects the agent-invoking endpoints."""
     token = settings.orchestrator_api_token
     if not token:
         return
@@ -55,12 +55,12 @@ async def require_token(authorization: str | None = Header(default=None)) -> Non
         raise HTTPException(status_code=401, detail="invalid or missing API token")
 
 
-# Все агенто-вызывающие роуты — под токеном (см. require_token). /health — открыт.
+# All agent-invoking routes are token-protected (see require_token). /health is open.
 router = APIRouter(dependencies=[Depends(require_token)])
 
 
 def _build_deps(request: Request, conversation_id: str) -> AgentDeps:
-    """Собрать зависимости агента на один запрос."""
+    """Build per-request agent dependencies."""
     http = request.app.state.http
     return AgentDeps(
         conversation_id=conversation_id,
@@ -75,7 +75,7 @@ def _build_deps(request: Request, conversation_id: str) -> AgentDeps:
 
 @router.get("/agents", response_model=list[AgentInfo])
 async def list_agents() -> list[AgentInfo]:
-    """Список доступных агентов."""
+    """List the available agents."""
     return [
         AgentInfo(
             name=c.name,
@@ -90,7 +90,7 @@ async def list_agents() -> list[AgentInfo]:
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest, request: Request) -> ChatResponse:
-    """Один ход диалога с агентом. История подтягивается по `conversation_id`."""
+    """One conversation turn with an agent. History is pulled by `conversation_id`."""
     card = get_agent(req.agent)
     conversation_id = req.conversation_id or uuid.uuid4().hex
     store = shared_store()
@@ -112,15 +112,15 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     )
 
 
-# --- OpenAI-совместимый слой ---
+# --- OpenAI-compatible layer ---
 
 
 def _to_history(messages: list[OpenAIMessage]) -> tuple[str, list[ModelMessage]]:
-    """Разложить OpenAI-сообщения на (последний промпт, история).
+    """Split OpenAI messages into (last prompt, history).
 
-    Системные сообщения отбрасываем — у агента собственный системный промпт.
-    Последнее user-сообщение становится промптом текущего хода, остальное —
-    историей в формате Pydantic AI.
+    System messages are dropped — the agent has its own system prompt.
+    The last user message becomes the current turn's prompt; the rest become
+    history in Pydantic AI format.
     """
     prompt = ""
     history: list[ModelMessage] = []
@@ -134,7 +134,7 @@ def _to_history(messages: list[OpenAIMessage]) -> tuple[str, list[ModelMessage]]
                 history.append(ModelRequest(parts=[UserPromptPart(content=prompt)]))
                 prompt = ""
             history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
-        # system / tool — пропускаем
+        # system / tool — skipped
     return prompt, history
 
 
@@ -144,7 +144,7 @@ def _completion_id() -> str:
 
 @router.get("/v1/models")
 async def openai_models() -> dict:
-    """OpenAI-совместимый список моделей: по одной «модели» на агента."""
+    """OpenAI-compatible model list: one "model" per agent."""
     created = int(time.time())
     return {
         "object": "list",
@@ -157,11 +157,11 @@ async def openai_models() -> dict:
 
 @router.post("/v1/chat/completions")
 async def openai_chat_completions(req: OpenAIChatRequest, request: Request):
-    """OpenAI-совместимый чат. `model` выбирает агента."""
+    """OpenAI-compatible chat. `model` selects the agent."""
     card = get_agent(req.model)
     prompt, history = _to_history(req.messages)
     if not prompt:
-        prompt = "(пустой запрос)"
+        prompt = "(empty request)"
     deps = _build_deps(request, conversation_id=uuid.uuid4().hex)
     completion_id = _completion_id()
     created = int(time.time())
@@ -200,7 +200,7 @@ async def _stream_completion(
     created: int,
     model: str,
 ) -> AsyncIterator[str]:
-    """Генерировать SSE-чанки в формате OpenAI chat.completion.chunk."""
+    """Generate SSE chunks in the OpenAI chat.completion.chunk format."""
 
     def chunk(delta: dict, finish: str | None) -> str:
         payload = {
@@ -218,20 +218,20 @@ async def _stream_completion(
             async for delta in result.stream_text(delta=True):
                 yield chunk({"content": delta}, None)
             _record(card.name, result.usage)
-    except Exception as exc:  # noqa: BLE001 — в стрим уже нельзя вернуть HTTP-ошибку
+    except Exception as exc:  # noqa: BLE001 — can no longer return an HTTP error mid-stream
         log.warning("openai.chat.stream_failed", agent=card.name, error=str(exc))
-        yield chunk({"content": f"\n[ошибка: {exc}]"}, None)
+        yield chunk({"content": f"\n[error: {exc}]"}, None)
     yield chunk({}, "stop")
     yield "data: [DONE]\n\n"
 
 
 def _tokens(usage) -> tuple[int, int]:
-    """(input, output) токены из RunUsage Pydantic AI (`result.usage` — свойство)."""
+    """(input, output) tokens from Pydantic AI RunUsage (`result.usage` is a property)."""
     return int(getattr(usage, "input_tokens", 0) or 0), int(getattr(usage, "output_tokens", 0) or 0)
 
 
 def _usage_dict(usage) -> dict:
-    """OpenAI-совместимый блок usage."""
+    """OpenAI-compatible usage block."""
     prompt_tokens, completion_tokens = _tokens(usage)
     return {
         "prompt_tokens": prompt_tokens,
@@ -241,9 +241,9 @@ def _usage_dict(usage) -> dict:
 
 
 def _record(agent: str, usage) -> None:
-    """Учесть запрос в метриках дашборда (best-effort, не роняет ответ)."""
+    """Record the request in the dashboard metrics (best-effort, never breaks the response)."""
     try:
         inp, out = _tokens(usage)
         shared_metrics().record(agent, inp, out)
-    except Exception:  # noqa: BLE001 — метрики не должны влиять на ответ
+    except Exception:  # noqa: BLE001 — metrics must not affect the response
         shared_metrics().record(agent, 0, 0)

@@ -1,55 +1,55 @@
-# Архитектура
+# Architecture
 
 ```
 OpenWebUI / Telegram
-        │  (OpenAI-совместимый /v1, нативный /chat — под Bearer-токеном)
+        │  (OpenAI-compatible /v1, native /chat — behind a Bearer token)
         ▼
-   orchestrator  ──HTTP──▶  sandbox-broker ──docker.sock──▶  одноразовые sandbox'ы
-   (Pydantic AI)              (единственный с сокетом)
+   orchestrator  ──HTTP──▶  sandbox-broker ──docker.sock──▶  one-shot sandboxes
+   (Pydantic AI)              (the only holder of the socket)
         │
         ├── LiteLLM ──▶ Alibaba Model Studio + OpenRouter
-        ├── Qdrant (RAG, по коллекции на namespace)
+        ├── Qdrant (RAG, one collection per namespace)
         └── SearXNG (web_search)
 
-   Воркеры (по расписанию): rag-indexer · deck-worker · research-worker
+   Workers (scheduled): rag-indexer · deck-worker · research-worker
 ```
 
-## Сервисы (docker-compose)
+## Services (docker-compose)
 
-| Сервис | Профиль | Описание |
+| Service | Profile | Description |
 |---|---|---|
-| `litellm` | база | LLM-прокси над Alibaba + OpenRouter одним ключом |
-| `qdrant` | база | векторное хранилище RAG |
-| `searxng` | база | self-hosted метапоиск для `web_search` |
-| `openwebui` | база | веб-чат |
-| `orchestrator` | app | FastAPI + Pydantic AI, 4 агента, дашборд `/dashboard` |
-| `sandbox-broker` | app | **единственный с `docker.sock`** — порождает sandbox'ы |
-| `rag-indexer` | app | Nextcloud → Qdrant (инкрементально) |
-| `research-worker` | app | assistant ищет идеи заработка → Deck-доска «Идеи» |
-| `deck-worker` | app | задачи из Nextcloud Deck → агенты |
-| `telegram-bot` | telegram | мост к `/chat`, один бот на агента |
+| `litellm` | base | LLM proxy over Alibaba + OpenRouter with one key |
+| `qdrant` | base | RAG vector store |
+| `searxng` | base | self-hosted metasearch for `web_search` |
+| `openwebui` | base | web chat |
+| `orchestrator` | app | FastAPI + Pydantic AI, 4 agents, dashboard `/dashboard` |
+| `sandbox-broker` | app | **the only holder of `docker.sock`** — spawns sandboxes |
+| `rag-indexer` | app | Nextcloud → Qdrant (incremental) |
+| `research-worker` | app | assistant researches money-making ideas → Deck board "Ideas" |
+| `deck-worker` | app | tasks from Nextcloud Deck → agents |
+| `telegram-bot` | telegram | bridge to `/chat`, one bot per agent |
 
-## Ключевые решения
+## Key decisions
 
-- **Sandbox-broker.** `docker.sock` вынесен из оркестратора в отдельный сервис.
-  Оркестратор ходит к брокеру по HTTP; RCE/инъекция в оркестраторе больше не даёт
-  прямого доступа к Docker/хосту. Профили `secops` (сеть вкл) и `coder` (сеть выкл).
-- **Token-bounded автономия.** Воркеры — не agentic-loop, а детерминированный
-  конвейер: поиск (0 токенов) + один дешёвый LLM-вызов. `research-worker` так кладёт
-  идеи на Deck за копейки.
-- **RAG через API.** Embeddings — Alibaba `text-embedding-v4` за LiteLLM (без
-  локального TEI/BGE-M3, бережём RAM). Namespace привязан к агенту, чужие данные не
-  утекают.
-- **Персист на SQLite.** История диалогов, заметки и метрики переживают рестарт.
-- **History compaction.** История ужимается по токен-бюджету (`HISTORY_MAX_TOKENS`)
-  перед запросом к модели.
+- **Sandbox-broker.** `docker.sock` is moved out of the orchestrator into a separate
+  service. The orchestrator talks to the broker over HTTP; RCE/injection in the
+  orchestrator no longer grants direct access to Docker/the host. Profiles `secops`
+  (network on) and `coder` (network off).
+- **Token-bounded autonomy.** Workers are not an agentic loop but a deterministic
+  pipeline: search (0 tokens) + one cheap LLM call. `research-worker` thus drops ideas
+  onto Deck for pennies.
+- **RAG via API.** Embeddings — Alibaba `text-embedding-v4` behind LiteLLM (no local
+  TEI/BGE-M3, saves RAM). The namespace is bound to the agent so foreign data doesn't leak.
+- **SQLite persistence.** Conversation history, notes and metrics survive restarts.
+- **History compaction.** History is compacted to a token budget (`HISTORY_MAX_TOKENS`)
+  before each model call.
 
-## Deck-worker: автономные задачи
+## Deck-worker: autonomous tasks
 
-Опрашивает доску Nextcloud Deck: карточки из `To Do` → claim переносом в `In Progress`
-(защита от повторной обработки) → агент по метке через оркестратор → результат
-комментарием → `Done`. Провал задачи уезжает в `DECK_FAILED_STACK` (дефолт «Failed»),
-**не** в Done; если стека нет — карточка остаётся в `In Progress` (не ложный успех).
+It polls a Nextcloud Deck board: cards from `To Do` → claim by moving to `In Progress`
+(protects against double processing) → the agent by label via the orchestrator → result
+as a comment → `Done`. A failed task moves to `DECK_FAILED_STACK` (default "Failed"),
+**not** Done; if that stack is missing, the card stays in `In Progress` (no false success).
 
-Связка с планировщиком: `planner` режет проект на дочерние карточки в `To Do`, а
-`deck-worker` их исполняет — получается каскад «ТЗ → задачи → выполнение».
+Pairing with the planner: `planner` slices a project into child cards in `To Do`, and
+`deck-worker` runs them — forming a brief → tasks → execution cascade.

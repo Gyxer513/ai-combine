@@ -1,8 +1,8 @@
-"""Метрики использования агентов (персистентные, для дашборда).
+"""Agent usage metrics (persistent, for the dashboard).
 
-Счётчики (запросы, токены, last_used) хранятся в SQLite и накапливаются между
-рестартами. `uptime` — время жизни текущего процесса (in-memory): он отвечает на
-вопрос «жив ли сейчас», тогда как счётчики — кумулятивная статистика.
+Counters (requests, tokens, last_used) are stored in SQLite and accumulate across
+restarts. `uptime` is the current process's lifetime (in-memory): it answers
+"is it alive right now", whereas the counters are cumulative statistics.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from .persistence import Database, shared_db
 
 @dataclass
 class AgentMetric:
-    """Счётчики одного агента."""
+    """Counters for a single agent."""
 
     requests: int = 0
     input_tokens: int = 0
@@ -25,14 +25,14 @@ class AgentMetric:
 
 
 class Metrics:
-    """Счётчики по агентам в SQLite + время старта процесса."""
+    """Per-agent counters in SQLite + the process start time."""
 
     def __init__(self, db: Database) -> None:
         self._db = db
         self._started = time.time()
 
     def record(self, agent: str, input_tokens: int, output_tokens: int) -> None:
-        """Учесть один запрос к агенту."""
+        """Record a single request to an agent."""
         self._db.execute(
             "INSERT INTO metrics (agent, requests, input_tokens, output_tokens, last_used) "
             "VALUES (?, 1, ?, ?, ?) "
@@ -64,5 +64,5 @@ class Metrics:
 
 @lru_cache(maxsize=1)
 def shared_metrics() -> Metrics:
-    """Единый на процесс набор метрик (поверх общей БД)."""
+    """Process-wide metrics set (on top of the shared DB)."""
     return Metrics(shared_db())
