@@ -160,6 +160,8 @@ LITELLM_BASE_URL=http://localhost:4000/v1 QDRANT_URL=http://localhost:6333 \
 Runtime + FAISS: без torch, без API, ~0.4–0.7 ГБ резидентно при загрузке.
 
 ```bash
+# (опц.) конвертировать PDF/DOCX/PPTX/HTML/... из data/docs_in/ в Markdown:
+docker compose --profile docs run --rm docs-indexer python -m src.docs_search.convert
 # собрать индекс по MD-корпусу (пишет в data/docs_index/):
 docker compose --profile docs run --rm docs-indexer
 # включить в .env:  DOCS_SEARCH_ENABLED=true   (+ HF_TOKEN, если репо модели gated)
@@ -170,7 +172,9 @@ uv run --extra docs python -m src.docs_search.index --selftest
 По умолчанию выключено — при `DOCS_SEARCH_ENABLED=false` (или без собранного индекса)
 инструмент мягко сообщает, что недоступен, и ничего не грузит. Образ оркестратора уже
 включает extra `docs`; модель (~300 МБ) скачивается лениво в `data/models/` при первом
-использовании. Корпус настраивается через `DOCS_GLOBS`.
+использовании. Чтобы индексировать не только доки репо — кидай документы в `data/docs_in/`
+и запускай **конвертер** (markitdown → Markdown в `data/docs_corpus/`, уже в `DOCS_GLOBS`).
+Корпус настраивается через `DOCS_GLOBS`.
 
 ## Этап 5: Telegram-бот
 

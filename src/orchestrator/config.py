@@ -70,7 +70,14 @@ class Settings(BaseSettings):
     docs_chunk_overlap: int = Field(default=200)
     docs_top_k: int = Field(default=5)
     # Which Markdown files make up the corpus (CSV of globs, relative to repo root).
-    docs_globs: str = Field(default="README.md,README.ru.md,SECURITY.md,docs/**/*.md")
+    # data/docs_corpus is where the converter writes — drop docs in docs_convert_src,
+    # run `python -m src.docs_search.convert`, then index.
+    docs_globs: str = Field(
+        default="README.md,README.ru.md,SECURITY.md,docs/**/*.md,data/docs_corpus/**/*.md"
+    )
+    # Converter (markitdown): turn PDF/DOCX/PPTX/HTML/... into Markdown for the index.
+    docs_convert_src: str = Field(default="data/docs_in")  # drop raw documents here
+    docs_corpus_dir: str = Field(default="data/docs_corpus")  # converted .md land here
     # EmbeddingGemma prompt prefixes (recommended by the model card for retrieval).
     docs_query_prefix: str = Field(default="task: search result | query: ")
     docs_doc_prefix: str = Field(default="title: none | text: ")

@@ -151,6 +151,8 @@ offline, separate from the Nextcloud RAG. **EmbeddingGemma-300m (int8)** via ONN
 + FAISS: no torch, no API, ~0.4–0.7 GB resident when loaded.
 
 ```bash
+# (optional) convert PDFs/DOCX/PPTX/HTML/... dropped in data/docs_in/ to Markdown:
+docker compose --profile docs run --rm docs-indexer python -m src.docs_search.convert
 # build the index over the Markdown corpus (writes data/docs_index/):
 docker compose --profile docs run --rm docs-indexer
 # enable it in .env:  DOCS_SEARCH_ENABLED=true   (+ HF_TOKEN if the model repo is gated)
@@ -161,7 +163,9 @@ uv run --extra docs python -m src.docs_search.index --selftest
 Off by default — when `DOCS_SEARCH_ENABLED=false` (or the index isn't built) the tool
 degrades to a friendly message and nothing is loaded. The orchestrator image already
 bundles the `docs` extra; the ~300 MB model downloads lazily into `data/models/` on first
-use. Corpus is configurable via `DOCS_GLOBS`.
+use. To index more than the repo's own docs, drop documents into `data/docs_in/` and run
+the **converter** (markitdown → Markdown into `data/docs_corpus/`, already in
+`DOCS_GLOBS`). Corpus globs are configurable via `DOCS_GLOBS`.
 
 ## Telegram
 

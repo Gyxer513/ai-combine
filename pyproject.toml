@@ -39,6 +39,11 @@ docs = [
     "huggingface-hub>=0.26",
     "numpy>=1.26",
 ]
+# Document -> Markdown converter (PDF/DOCX/PPTX/HTML/...) to feed the docs index.
+# Convert-time only (the indexer step), not needed by the orchestrator at query time.
+convert = [
+    "markitdown[all]>=0.1",
+]
 
 [dependency-groups]
 dev = [

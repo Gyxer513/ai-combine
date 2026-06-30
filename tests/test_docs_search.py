@@ -10,6 +10,12 @@ import pytest
 
 import src.orchestrator.tools.docs as docs_tool
 from src.docs_search.chunker import markdown_chunks
+from src.docs_search.convert import (
+    DocsConverterUnavailable,
+    _make_converter,
+    _out_name,
+    convert_tree,
+)
 from src.orchestrator.config import settings
 from src.orchestrator.tools.docs import run_search
 
@@ -116,3 +122,55 @@ async def test_run_search_returns_hits(monkeypatch):
     assert "sandbox info" in out
     assert "docs/architecture.md > Sandbox" in out
     assert "untrusted_content" in out  # wrapped
+
+
+# --- converter (markitdown mocked) ---
+
+
+class _FakeConverter:
+    def convert(self, path):
+        from pathlib import Path
+
+        class _R:
+            text_content = f"# converted\n\n{Path(path).name}"
+
+        return _R()
+
+
+def test_out_name_flattens_path():
+    from pathlib import Path
+
+    assert _out_name(Path("reports/q3.pdf")) == "reports__q3.pdf.md"
+    assert _out_name(Path("a.docx")) == "a.docx.md"
+
+
+def test_convert_tree_converts_passes_through_and_skips(tmp_path):
+    src = tmp_path / "in"
+    (src / "sub").mkdir(parents=True)
+    (src / "report.pdf").write_text("binary-ish", encoding="utf-8")
+    (src / "sub" / "deck.pptx").write_text("x", encoding="utf-8")
+    (src / "note.md").write_text("# already md", encoding="utf-8")
+    (src / "photo.png").write_text("x", encoding="utf-8")  # unsupported -> skipped
+    out = tmp_path / "corpus"
+
+    written, skipped = convert_tree(str(src), str(out), converter=_FakeConverter())
+
+    assert written == 3 and skipped == 1
+    assert (out / "report.pdf.md").read_text(encoding="utf-8").startswith("# converted")
+    assert (out / "sub__deck.pptx.md").exists()
+    assert "already md" in (out / "note.md.md").read_text(encoding="utf-8")  # passthrough
+    assert not (out / "photo.png.md").exists()
+
+
+def test_convert_tree_missing_src(tmp_path):
+    assert convert_tree(str(tmp_path / "nope"), str(tmp_path / "out")) == (0, 0)
+
+
+def test_make_converter_unavailable_without_extra():
+    try:
+        import markitdown  # noqa: F401
+    except ImportError:
+        with pytest.raises(DocsConverterUnavailable):
+            _make_converter()
+    else:
+        pytest.skip("markitdown installed — unavailable path not exercised")
